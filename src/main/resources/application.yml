@@ -1,0 +1,58 @@
+# Spring 核心配置
+spring:
+  # 应用名称
+  application:
+    name: Second_hand-Trading-Platform
+
+  datasource:
+    # 显式指定数据源类型为 Druid
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/second_hand-trade?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: 1234
+
+#    # Druid 特有配置
+#    druid:
+#      # 初始化连接数
+#      initial-size: 5
+#      # 最小空闲连接
+#      min-idle: 5
+#      # 最大活跃连接
+#      max-active: 20
+#      # 获取连接等待超时的时间
+#      max-wait: 60000
+#
+#      # 开启监控功能 (StatFilter) 和 防火墙 (WallFilter)
+#      filters: stat,wall
+#
+#      # 监控页面配置
+#      stat-view-servlet:
+#        enabled: true
+#        url-pattern: /druid/* # 访问 http://localhost:8080/druid/login.html 即可看到监控
+#        login-username: admin # 监控页面账号
+#        login-password: admin # 监控页面密码
+#
+#      # Web 关联监控 (监控 URL 访问)
+#      web-stat-filter:
+#        enabled: true
+#        url-pattern: /*
+#        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+
+# MyBatis 框架配置
+mybatis:
+  configuration:
+    # 开启驼峰命名自动映射
+    map-underscore-to-camel-case: true
+    # 将MyBatis执行的SQL打印到控制台
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  # 实体类别名扫描包
+  type-aliases-package: com.xyz.entity
+
+# 自定义业务配置
+trade:
+  jwt:
+    # JWT 签名密钥 (请务必修改为一个安全复杂的随机字符串)
+    secret-key: your-secret-key-here-please-change-this-to-a-secure-random-string
+    # JWT 过期时间 (这里是24小时，单位：毫秒)
+    expiration-time: 86400000
