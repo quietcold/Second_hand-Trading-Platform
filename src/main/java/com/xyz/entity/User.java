@@ -20,7 +20,7 @@ public class User {
     private String phone;
     private String nickname;
     private String gender;
-    private String avatar;
+    private String image;
     private Integer status; // 0-禁用，1-启用
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

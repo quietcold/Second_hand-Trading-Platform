@@ -31,4 +31,10 @@ public interface UserMapper {
     @Select("SELECT * FROM user WHERE account_num = #{accountNum} and password = #{password} ")
     User findByAcc_Pss(String accountNum,String  password);
 
+    /**
+     * 根据用户ID查询用户
+     */
+    @Select("SELECT * FROM user WHERE id = #{id}")
+    User findById(Long id);
+
 }

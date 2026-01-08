@@ -60,7 +60,7 @@ public class UserController {
      * 用户登录
      */
     @PostMapping("/login")
-    @Operation(summary = "用户登录")
+    @Operation(summary = "用户登录",description = "2222登录")
     public Result<UserEnterVO> login(@RequestBody UserLoginDTO loginDTO) {
         try {
             User user= userService.login(loginDTO);
