@@ -47,7 +47,7 @@ public class GoodsServiceImpl implements GoodsService {
         
         // 设置封面图（取第一张）
         List<String> imageUrls = goodsDTO.getImageUrls();
-        if (imageUrls == null && imageUrls.isEmpty()) {
+        if (imageUrls != null && !imageUrls.isEmpty()) {
             goods.setCoverUrl(imageUrls.get(0));
         }
         
