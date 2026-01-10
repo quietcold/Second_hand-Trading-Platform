@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xyz.mapper.GoodsMapper">
+
+    <!-- 商品详情结果映射（处理imageUrls的JSON转换） -->
+    <resultMap id="goodsDetailResultMap" type="com.xyz.vo.GoodsDetailVO">
+        <id property="id" column="id"/>
+        <result property="ownerId" column="ownerId"/>
+        <result property="goodsType" column="goodsType"/>
+        <result property="description" column="description"/>
+        <result property="imageUrls" column="imageUrls" 
+                typeHandler="com.xyz.handler.ListStringTypeHandler"/>
+        <result property="categoryId" column="categoryId"/>
+        <result property="conditionLevel" column="conditionLevel"/>
+        <result property="collectNum" column="collectNum"/>
+        <result property="sellPrice" column="sellPrice"/>
+        <result property="rentPrice" column="rentPrice"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="createTime"/>
+        <result property="updateTime" column="updateTime"/>
+        <result property="ownerName" column="ownerName"/>
+        <result property="ownerAvatar" column="ownerAvatar"/>
+    </resultMap>
+
+    <!-- 商品卡片公共字段 -->
+    <sql id="goodsCardColumns">
+        g.id,
+        g.owner_id AS ownerId,
+        g.goods_type AS goodsType,
+        CASE WHEN CHAR_LENGTH(g.description) > 25 
+             THEN CONCAT(SUBSTRING(g.description, 1, 25), '...') 
+             ELSE g.description 
+        END AS briefDescription,
+        g.cover_url AS coverUrl,
+        g.condition_level AS conditionLevel,
+        g.collect_num AS collectNum,
+        g.category_id AS categoryId,
+        g.sell_price AS sellPrice,
+        g.rent_price AS rentPrice,
+        UNIX_TIMESTAMP(g.update_time) * 1000 AS updateTimestamp,
+        u.nickname AS ownerName,
+        u.image AS ownerAvatar
+    </sql>
+
+    <!-- 游标分页查询商品列表（按分类） -->
+    <select id="getGoodsPageByCategoryId" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.category_id = #{categoryId}
+          AND g.status = 1
+          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
+        ORDER BY g.update_time DESC
+        LIMIT #{size}
+    </select>
+
+    <!-- 游标分页查询用户商品列表 -->
+    <select id="getGoodsPageByOwnerId" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.owner_id = #{ownerId}
+          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
+        ORDER BY g.update_time DESC
+        LIMIT #{size}
+    </select>
+
+    <!-- 根据ID列表批量查询商品卡片 -->
+    <select id="getGoodsCardsByIds" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY FIELD(g.id,
+        <foreach collection="ids" item="id" separator=",">
+            #{id}
+        </foreach>
+        )
+    </select>
+
+    <!-- 根据ID查询商品详情 -->
+    <select id="getGoodsDetailById" resultMap="goodsDetailResultMap">
+        SELECT g.id,
+               g.owner_id AS ownerId,
+               g.goods_type AS goodsType,
+               g.description,
+               g.image_urls AS imageUrls,
+               g.category_id AS categoryId,
+               g.condition_level AS conditionLevel,
+               g.collect_num AS collectNum,
+               g.sell_price AS sellPrice,
+               g.rent_price AS rentPrice,
+               g.status,
+               g.create_time AS createTime,
+               g.update_time AS updateTime,
+               u.nickname AS ownerName,
+               u.image AS ownerAvatar
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.id = #{id}
+    </select>
+
+    <!-- 搜索商品ID（全文索引，只返回ID） -->
+    <select id="searchGoodsIds" resultType="java.lang.Long">
+        SELECT g.id
+        FROM goods g
+        WHERE g.status = 1
+          AND (
+            MATCH(g.description) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
+            OR g.description LIKE CONCAT('%', #{keyword}, '%')
+            )
+          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
+        ORDER BY g.update_time DESC
+        LIMIT #{size}
+    </select>
+
+</mapper>

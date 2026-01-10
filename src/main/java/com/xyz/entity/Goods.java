@@ -1,5 +1,7 @@
 package com.xyz.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +19,7 @@ public class Goods {
     private Long id;
     private Long ownerId; //卖家id
     private Integer goodsType; //1-售卖商品,2-租赁商品
+    
     private String description;
     private List<String> imageUrls;//商品图片的集合
     private Long categoryId; //商品分类id

@@ -6,6 +6,7 @@ import com.xyz.vo.GoodsDetailVO;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface GoodsMapper {
@@ -22,36 +23,6 @@ public interface GoodsMapper {
     void insertGoods(Goods goods);
 
     /**
-     * 根据分类ID查询商品列表（包含卖家信息）
-     */
-    @Select("SELECT g.id, g.owner_id AS ownerId, g.goods_type AS goodsType, " +
-            "CASE WHEN CHAR_LENGTH(g.description) > 25 THEN CONCAT(SUBSTRING(g.description, 1, 25), '...') " +
-            "ELSE g.description END AS briefDescription, " +
-            "g.cover_url AS coverUrl, g.condition_level AS conditionLevel, g.collect_num AS collectNum, " +
-            "g.category_id AS categoryId, g.sell_price AS sellPrice, g.rent_price AS rentPrice, " +
-            "u.nickname AS ownerName, u.image AS ownerAvatar " +
-            "FROM goods g " +
-            "LEFT JOIN user u ON g.owner_id = u.id " +
-            "WHERE g.category_id = #{categoryId} AND g.status = 1 " +
-            "ORDER BY g.update_time DESC")
-    List<GoodsCardVO> getGoodsListByCategoryId(long categoryId);
-
-    /**
-     * 根据用户ID查询其发布的商品列表（包含卖家信息）
-     */
-    @Select("SELECT g.id, g.owner_id AS ownerId, g.goods_type AS goodsType, " +
-            "CASE WHEN CHAR_LENGTH(g.description) > 25 THEN CONCAT(SUBSTRING(g.description, 1, 25), '...') " +
-            "ELSE g.description END AS briefDescription, " +
-            "g.cover_url AS coverUrl, g.condition_level AS conditionLevel, g.collect_num AS collectNum, " +
-            "g.category_id AS categoryId, g.sell_price AS sellPrice, g.rent_price AS rentPrice, " +
-            "u.nickname AS ownerName, u.image AS ownerAvatar " +
-            "FROM goods g " +
-            "LEFT JOIN user u ON g.owner_id = u.id " +
-            "WHERE g.owner_id = #{ownerId} " +
-            "ORDER BY g.update_time DESC")
-    List<GoodsCardVO> getGoodsListByOwnerId(long ownerId);
-
-    /**
      * 更新商品状态（下架、已售出、租期中等）
      */
     @Update("UPDATE goods SET status = #{status} WHERE id = #{id} AND owner_id = #{ownerId}")
@@ -64,23 +35,6 @@ public interface GoodsMapper {
     Integer getGoodsStatus(@Param("id") Long id, @Param("ownerId") Long ownerId);
 
     /**
-     * 根据ID查询商品详情（包含卖家信息）
-     */
-    @Select("SELECT g.id, g.owner_id AS ownerId, g.goods_type AS goodsType, g.description, " +
-            "g.image_urls AS imageUrls, g.category_id AS categoryId, g.condition_level AS conditionLevel, " +
-            "g.collect_num AS collectNum, g.sell_price AS sellPrice, g.rent_price AS rentPrice, " +
-            "g.status, g.create_time AS createTime, g.update_time AS updateTime, " +
-            "u.nickname AS ownerName, u.image AS ownerAvatar " +
-            "FROM goods g " +
-            "LEFT JOIN user u ON g.owner_id = u.id " +
-            "WHERE g.id = #{id}")
-    @Results({
-            @Result(property = "imageUrls", column = "imageUrls", 
-                    typeHandler = com.xyz.handler.ListStringTypeHandler.class)
-    })
-    GoodsDetailVO getGoodsDetailById(Long id);
-
-    /**
      * 更新商品信息（权限校验）
      */
     @Update("UPDATE goods SET goods_type = #{goodsType}, description = #{description}, " +
@@ -90,4 +44,57 @@ public interface GoodsMapper {
             "WHERE id = #{id} AND owner_id = #{ownerId}")
     int updateGoods(Goods goods);
 
+    /**
+     * 根据分类ID查询所有商品的ID和更新时间戳（用于初始化ZSet缓存）
+     */
+    @Select("SELECT id, UNIX_TIMESTAMP(update_time) * 1000 AS updateTime FROM goods " +
+            "WHERE category_id = #{categoryId} AND status = 1")
+    List<Map<String, Object>> getGoodsIdsWithTimeByCategoryId(long categoryId);
+
+    /**
+     * 根据用户ID查询所有商品的ID和更新时间戳
+     */
+    @Select("SELECT id, UNIX_TIMESTAMP(update_time) * 1000 AS updateTime FROM goods " +
+            "WHERE owner_id = #{ownerId}")
+    List<Map<String, Object>> getGoodsIdsWithTimeByOwnerId(long ownerId);
+    
+    /**
+     * 游标分页查询用户商品ID列表
+     */
+    @Select("SELECT id FROM goods WHERE owner_id = #{ownerId} " +
+            "AND UNIX_TIMESTAMP(update_time) * 1000 < #{cursor} " +
+            "ORDER BY update_time DESC LIMIT #{size}")
+    List<Long> getGoodsIdsByOwnerId(@Param("ownerId") long ownerId,
+                                    @Param("cursor") long cursor,
+                                    @Param("size") int size);
+
+    /**
+     * 根据商品ID查询商品的分类ID、用户ID和更新时间戳
+     */
+    @Select("SELECT category_id AS categoryId, owner_id AS ownerId, " +
+            "UNIX_TIMESTAMP(update_time) * 1000 AS updateTime FROM goods WHERE id = #{goodsId}")
+    Map<String, Object> getGoodsCategoryAndTimeById(Long goodsId);
+
+    // ========== 以下方法SQL较长，实现在 GoodsMapper.xml 中 ==========
+
+    /** 游标分页查询商品列表（按分类） */
+    List<GoodsCardVO> getGoodsPageByCategoryId(@Param("categoryId") long categoryId,
+                                               @Param("cursor") long cursor,
+                                               @Param("size") int size);
+
+    /** 游标分页查询用户商品列表 */
+    List<GoodsCardVO> getGoodsPageByOwnerId(@Param("ownerId") long ownerId,
+                                            @Param("cursor") long cursor,
+                                            @Param("size") int size);
+
+    /** 根据ID列表批量查询商品卡片信息 */
+    List<GoodsCardVO> getGoodsCardsByIds(@Param("ids") List<Long> ids);
+
+    /** 搜索商品ID（全文索引，只返回ID） */
+    List<Long> searchGoodsIds(@Param("keyword") String keyword,
+                              @Param("cursor") long cursor,
+                              @Param("size") int size);
+
+    /** 根据ID查询商品详情 */
+    GoodsDetailVO getGoodsDetailById(Long id);
 }

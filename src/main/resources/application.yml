@@ -48,6 +48,8 @@ mybatis:
   type-aliases-package: com.xyz.entity
   # 类型处理器扫描包
   type-handlers-package: com.xyz.handler
+  # Mapper XML 文件位置
+  mapper-locations: classpath:mapper/*.xml
 
 # 自定义业务配置
 trade:

@@ -26,4 +26,7 @@ public class GoodsCardVO {
     // 卖家信息（连表查询）
     private String ownerName;
     private String ownerAvatar;
+    
+    // 更新时间戳（毫秒），用于游标分页
+    private Long updateTimestamp;
 }

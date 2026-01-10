@@ -4,15 +4,30 @@ import com.xyz.dto.GoodsDTO;
 
 import com.xyz.vo.GoodsCardVO;
 import com.xyz.vo.GoodsDetailVO;
+import com.xyz.vo.PageResult;
 
 import java.util.List;
 
 public interface GoodsService {
-    void releaseGoods(GoodsDTO goodsDTO);
+    void releaseGoods(long ownerId,GoodsDTO goodsDTO);
 
-    List<GoodsCardVO> getGoodsListByCategoryId(long categoryId);
+    /**
+     * 游标分页查询商品列表（用于无限滚动）
+     * @param categoryId 分类ID
+     * @param cursor 游标（时间戳毫秒），首次传null或不传
+     * @param size 每页条数
+     */
+    PageResult<GoodsCardVO> getGoodsPageByCategoryId(long categoryId, Long cursor, int size);
 
-    List<GoodsCardVO> getGoodsListByOwnerId(long ownerId);
+    /**
+     * 游标分页查询用户商品列表
+     */
+    PageResult<GoodsCardVO> getGoodsPageByOwnerId(long ownerId, Long cursor, int size);
+
+    /**
+     * 搜索商品（模糊查询）
+     */
+    PageResult<GoodsCardVO> searchGoods(String keyword, Long cursor, int size);
 
     void offlineGoods(Long goodsId, Long ownerId);
 
@@ -23,4 +38,14 @@ public interface GoodsService {
     void onlineGoods(Long goodsId, Long ownerId);
 
     void deleteGoods(Long goodsId, Long ownerId);
+
+    /**
+     * 标记商品为已售出
+     */
+    void markAsSold(Long goodsId, Long ownerId);
+
+    /**
+     * 标记商品为租借中
+     */
+    void markAsRenting(Long goodsId, Long ownerId);
 }

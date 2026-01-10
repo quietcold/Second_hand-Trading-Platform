@@ -6,17 +6,31 @@ package com.xyz.constant;
 public class RedisConstant {
     
     // ========== 商品相关 ==========
-    /** 商品列表缓存前缀 - goods:list:categoryId */
-    public static final String GOODS_LIST_KEY = "goods:list:";
+    /** 分类商品ID ZSet缓存前缀 - goods:cat:{categoryId}:ids，Score为更新时间戳 */
+    public static final String GOODS_CAT_IDS_KEY = "goods:cat:";
+    public static final String GOODS_CAT_IDS_SUFFIX = ":ids";
     
-    /** 商品详情缓存前缀 - goods:detail:goodsId */
+    /** 用户商品ID ZSet缓存前缀 - goods:owner:{ownerId}:ids，Score为更新时间戳 */
+    public static final String GOODS_OWNER_IDS_KEY = "goods:owner:";
+    public static final String GOODS_OWNER_IDS_SUFFIX = ":ids";
+    
+    /** ZSet缓存过期时间（分钟） */
+    public static final long GOODS_IDS_TTL = 60;
+    
+    /** 商品详情缓存前缀 - goods:detail:{goodsId} */
     public static final String GOODS_DETAIL_KEY = "goods:detail:";
     
-    /** 商品列表缓存过期时间（分钟） */
-    public static final long GOODS_LIST_TTL = 30;
+    /** 商品详情缓存过期时间（分钟），设置30分钟 */
+    public static final long GOODS_DETAIL_TTL = 30;
     
-    /** 商品详情缓存过期时间（分钟） */
-    public static final long GOODS_DETAIL_TTL = 60;
+    /** 商品详情缓存过期时间随机浮动范围（分钟），防止缓存雪崩 */
+    public static final long GOODS_DETAIL_TTL_RANDOM = 5;
+    
+    /** 商品卡片缓存前缀 - goods:card:{goodsId} */
+    public static final String GOODS_CARD_KEY = "goods:card:";
+    
+    /** 商品卡片缓存过期时间（分钟） */
+    public static final long GOODS_CARD_TTL = 30;
     
     // ========== 用户相关 ==========
     /** 用户信息缓存前缀 - user:info:userId */
