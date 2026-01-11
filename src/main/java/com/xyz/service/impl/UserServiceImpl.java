@@ -12,6 +12,7 @@ import com.xyz.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -28,6 +29,7 @@ public class UserServiceImpl implements UserService {
 
     
     @Override
+    @Transactional  // 添加事务管理
     public User register(UserRegisterDTO registerDTO) {
         // 检查用户名是否已存在
         User userExist = userMapper.findByAcc(registerDTO.getAccountNum());
@@ -37,6 +39,14 @@ public class UserServiceImpl implements UserService {
 
         User user = new User();
         BeanUtils.copyProperties(registerDTO, user);
+        
+        // 处理空字符串转 null（避免唯一约束冲突）
+        if (user.getEmail() != null && user.getEmail().trim().isEmpty()) {
+            user.setEmail(null);
+        }
+        if (user.getPhone() != null && user.getPhone().trim().isEmpty()) {
+            user.setPhone(null);
+        }
         
         // 设置默认值
         user.setStatus(1); // 1-启用

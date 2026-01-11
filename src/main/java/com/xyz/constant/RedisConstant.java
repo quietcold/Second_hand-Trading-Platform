@@ -1,4 +1,4 @@
-package com.xyz.constant;
+ package com.xyz.constant;
 
 /**
  * Redis 缓存 Key 常量
@@ -42,4 +42,23 @@ public class RedisConstant {
     // ========== Token 相关 ==========
     /** JWT Token 黑名单前缀 - token:blacklist:token */
     public static final String TOKEN_BLACKLIST_KEY = "token:blacklist:";
+    
+    // ========== 评论相关 ==========
+    /** 评论点赞集合前缀 - comment:like:{commentId}，存储点赞该评论的用户ID集合 */
+    public static final String COMMENT_LIKE_KEY = "comment:like:";
+    
+    /** 用户点赞评论集合前缀 - user:like:comments:{userId}，存储用户点赞的评论ID集合 */
+    public static final String USER_LIKE_COMMENTS_KEY = "user:like:comments:";
+    
+    /** 评论回复数缓存前缀 - comment:reply:count:{parentId} */
+    public static final String COMMENT_REPLY_COUNT_KEY = "comment:reply:count:";
+    
+    /** 评论最新回复ID缓存前缀 - comment:latest:reply:{parentId} */
+    public static final String COMMENT_LATEST_REPLY_KEY = "comment:latest:reply:";
+    
+    /** 评论点赞数据缓存过期时间（分钟） */
+    public static final long COMMENT_LIKE_TTL = 60;
+    
+    /** 评论统计数据缓存过期时间（分钟） */
+    public static final long COMMENT_COUNT_TTL = 30;
 }

@@ -9,7 +9,7 @@ import com.xyz.vo.PageResult;
 import java.util.List;
 
 public interface GoodsService {
-    void releaseGoods(long ownerId,GoodsDTO goodsDTO);
+    void releaseGoods(GoodsDTO goodsDTO);
 
     /**
      * 游标分页查询商品列表（用于无限滚动）

@@ -21,8 +21,17 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(jwtTokenAdminInterceptor)
-                .addPathPatterns("/user/**")  // 拦截 user 下所有接口
-                .excludePathPatterns("/user/login", "/user/register"); // 排除登录和注册
+                .addPathPatterns("/**")  // 拦截所有接口
+                .excludePathPatterns(
+                        "/user/login",
+                        "/user/register",
+                        "/doc.html",
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
+                        "/swagger-resources/**",
+                        "/v3/api-docs/**",
+                        "/webjars/**"
+                ); // 排除不需要登录的接口
     }
 
 

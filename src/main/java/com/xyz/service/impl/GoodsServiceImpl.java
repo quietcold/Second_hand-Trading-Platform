@@ -9,6 +9,7 @@ import com.xyz.exception.GoodsInRentException;
 import com.xyz.exception.GoodsNotFoundException;
 import com.xyz.mapper.GoodsMapper;
 import com.xyz.service.GoodsService;
+import com.xyz.util.BaseContext;
 import com.xyz.vo.GoodsCardVO;
 import com.xyz.vo.GoodsDetailVO;
 import com.xyz.vo.PageResult;
@@ -37,11 +38,14 @@ public class GoodsServiceImpl implements GoodsService {
 
     @Override
     @Transactional
-    public void releaseGoods(long ownerId,GoodsDTO goodsDTO) {
+    public void releaseGoods(GoodsDTO goodsDTO) {
+        // 从上下文获取当前用户ID
+        Long currentUserId = BaseContext.getCurrentId();
+        
         Goods goods = new Goods();
         BeanUtils.copyProperties(goodsDTO, goods);
         goods.setCollectNum(0);
-        goods.setOwnerId(ownerId);
+        goods.setOwnerId(currentUserId);
         // 商品状态由后端统一设置为上架
         goods.setStatus(GoodsStatusConstant.ON_SALE);
         

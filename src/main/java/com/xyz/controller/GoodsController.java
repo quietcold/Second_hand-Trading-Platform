@@ -25,8 +25,7 @@ public class GoodsController {
     @PostMapping
     @Operation(summary = "发布商品")
     public Result releaseGoods(@RequestBody GoodsDTO goodsDTO) {
-        long ownerId = BaseContext.getCurrentId();
-        goodsService.releaseGoods(ownerId,goodsDTO);
+        goodsService.releaseGoods(goodsDTO);
         return Result.success("发布成功");
     }
 
