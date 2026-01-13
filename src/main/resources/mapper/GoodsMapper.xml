@@ -81,6 +81,14 @@
         )
     </select>
 
+    <!-- 根据ID查询单个商品卡片 -->
+    <select id="getGoodsCardById" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.id = #{id}
+    </select>
+
     <!-- 根据ID查询商品详情 -->
     <select id="getGoodsDetailById" resultMap="goodsDetailResultMap">
         SELECT g.id,

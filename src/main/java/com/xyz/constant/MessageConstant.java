@@ -16,4 +16,14 @@ public  class MessageConstant {
     public static final String COMMENT_NOT_FOUND = "评论不存在";
     public static final String COMMENT_DELETE_NO_PERMISSION = "无权删除该评论";
     public static final String COMMENT_DELETE_FAILED = "删除失败，评论不存在或无权限";
+    
+    // 聊天相关
+    public static final String CHAT_SESSION_NOT_FOUND = "会话不存在";
+    public static final String CHAT_SESSION_CREATE_FAILED = "创建会话失败";
+    public static final String CHAT_MESSAGE_SEND_FAILED = "消息发送失败";
+    public static final String CHAT_NO_PERMISSION = "无权访问该会话";
+    public static final String CHAT_MESSAGE_NOT_FOUND = "消息不存在";
+    public static final String CHAT_RECALL_TIME_EXPIRED = "消息发送超过2分钟,无法撤回";
+    public static final String CHAT_RECALL_NO_PERMISSION = "只能撤回自己发送的消息";
+    public static final String CHAT_MESSAGE_ALREADY_RECALLED = "消息已被撤回";
 }

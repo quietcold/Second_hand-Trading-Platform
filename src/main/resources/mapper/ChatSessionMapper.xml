@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xyz.mapper.ChatSessionMapper">
+
+    <resultMap id="ChatSessionResultMap" type="com.xyz.entity.ChatSession">
+        <id property="id" column="id"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="user1Id" column="user1_id"/>
+        <result property="user2Id" column="user2_id"/>
+        <result property="goodsId" column="goods_id"/>
+        <result property="lastMessage" column="last_message"/>
+        <result property="lastMessageTime" column="last_message_time"/>
+        <result property="user1Unread" column="user1_unread"/>
+        <result property="user2Unread" column="user2_unread"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="user1Hide" column="user1_hide"/>
+        <result property="user2Hide" column="user2_hide"/>
+    </resultMap>
+
+    <!-- 根据会话ID查询会话 -->
+    <select id="getBySessionId" resultMap="ChatSessionResultMap">
+        SELECT * FROM chat_session
+        WHERE session_id = #{sessionId}
+    </select>
+
+    <!-- 插入会话 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chat_session (session_id, user1_id, user2_id, goods_id, 
+                                 last_message, last_message_time, user1_unread, user2_unread)
+        VALUES (#{sessionId}, #{user1Id}, #{user2Id}, #{goodsId}, 
+                #{lastMessage}, #{lastMessageTime}, #{user1Unread}, #{user2Unread})
+    </insert>
+
+    <!-- 更新会话最后消息信息 -->
+    <update id="updateLastMessage">
+        UPDATE chat_session
+        SET last_message = #{lastMessage},
+            last_message_time = #{lastMessageTime}
+        WHERE session_id = #{sessionId}
+    </update>
+
+    <!-- 增加未读数 -->
+    <update id="incrementUnread">
+        UPDATE chat_session
+        SET 
+            user1_unread = IF(user1_id = #{userId}, user1_unread + 1, user1_unread),
+            user2_unread = IF(user2_id = #{userId}, user2_unread + 1, user2_unread)
+        WHERE session_id = #{sessionId}
+    </update>
+
+    <!-- 清空未读数 -->
+    <update id="clearUnread">
+        UPDATE chat_session
+        SET 
+            user1_unread = IF(user1_id = #{userId}, 0, user1_unread),
+            user2_unread = IF(user2_id = #{userId}, 0, user2_unread)
+        WHERE session_id = #{sessionId}
+    </update>
+
+    <!-- 获取用户的会话列表(过滤当前用户隐藏的会话) -->
+    <select id="listByUserId" resultMap="ChatSessionResultMap">
+        SELECT * FROM chat_session
+        WHERE (user1_id = #{userId} OR user2_id = #{userId})
+        AND (
+            (user1_id = #{userId} AND user1_hide = 0)
+            OR
+            (user2_id = #{userId} AND user2_hide = 0)
+        )
+        ORDER BY last_message_time DESC
+    </select>
+
+    <!-- 获取用户的未读消息总数(不统计隐藏的会话) -->
+    <select id="getTotalUnreadByUserId" resultType="java.lang.Integer">
+        SELECT 
+            COALESCE(SUM(
+                CASE 
+                    WHEN user1_id = #{userId} THEN user1_unread
+                    WHEN user2_id = #{userId} THEN user2_unread
+                    ELSE 0
+                END
+            ), 0) AS total
+        FROM chat_session
+        WHERE (user1_id = #{userId} OR user2_id = #{userId})
+        AND (
+            (user1_id = #{userId} AND user1_hide = 0)
+            OR
+            (user2_id = #{userId} AND user2_hide = 0)
+        )
+    </select>
+
+    <!-- 隐藏会话(不删除数据,只是在会话列表中隐藏) -->
+    <update id="deleteBySessionId">
+        UPDATE chat_session
+        SET 
+            user1_hide = IF(user1_id = #{userId}, 1, user1_hide),
+            user2_hide = IF(user2_id = #{userId}, 1, user2_hide)
+        WHERE session_id = #{sessionId}
+    </update>
+    
+    <!-- 取消隐藏会话(当用户再次发送消息时自动显示) -->
+    <update id="unhideSession">
+        UPDATE chat_session
+        SET 
+            user1_hide = IF(user1_id = #{userId}, 0, user1_hide),
+            user2_hide = IF(user2_id = #{userId}, 0, user2_hide)
+        WHERE session_id = #{sessionId}
+    </update>
+
+</mapper>

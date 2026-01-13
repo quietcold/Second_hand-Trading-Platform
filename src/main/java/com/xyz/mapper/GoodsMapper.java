@@ -90,6 +90,9 @@ public interface GoodsMapper {
     /** 根据ID列表批量查询商品卡片信息 */
     List<GoodsCardVO> getGoodsCardsByIds(@Param("ids") List<Long> ids);
 
+    /** 根据ID查询商品卡片信息 */
+    GoodsCardVO getGoodsCardById(Long id);
+
     /** 搜索商品ID（全文索引，只返回ID） */
     List<Long> searchGoodsIds(@Param("keyword") String keyword,
                               @Param("cursor") long cursor,

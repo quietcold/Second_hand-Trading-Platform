@@ -51,6 +51,11 @@ mybatis:
   # Mapper XML 文件位置
   mapper-locations: classpath:mapper/*.xml
 
+# 日志配置
+logging:
+  level:
+    com.xyz: debug  # 查看缓存日志
+
 # 自定义业务配置
 trade:
   jwt:

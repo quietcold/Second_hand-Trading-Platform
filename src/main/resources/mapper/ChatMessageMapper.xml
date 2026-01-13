@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xyz.mapper.ChatMessageMapper">
+
+    <resultMap id="ChatMessageResultMap" type="com.xyz.entity.ChatMessage">
+        <id property="id" column="id"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="senderId" column="sender_id"/>
+        <result property="receiverId" column="receiver_id"/>
+        <result property="messageType" column="message_type"/>
+        <result property="content" column="content"/>
+        <result property="goodsId" column="goods_id"/>
+        <result property="isRead" column="is_read"/>
+        <result property="isRecalled" column="is_recalled"/>
+        <result property="sendTime" column="send_time"/>
+    </resultMap>
+
+    <!-- 插入消息 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chat_message (session_id, sender_id, receiver_id, message_type, 
+                                 content, goods_id, is_read, send_time)
+        VALUES (#{sessionId}, #{senderId}, #{receiverId}, #{messageType}, 
+                #{content}, #{goodsId}, #{isRead}, #{sendTime})
+    </insert>
+
+    <!-- 根据会话ID查询消息列表(分页) -->
+    <select id="listBySessionId" resultMap="ChatMessageResultMap">
+        SELECT * FROM chat_message
+        WHERE session_id = #{sessionId}
+        ORDER BY send_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 标记消息为已读 -->
+    <update id="markAsRead">
+        UPDATE chat_message
+        SET is_read = 1
+        WHERE session_id = #{sessionId} 
+          AND receiver_id = #{receiverId}
+          AND is_read = 0
+    </update>
+
+    <!-- 根据ID查询消息 -->
+    <select id="getById" resultMap="ChatMessageResultMap">
+        SELECT * FROM chat_message
+        WHERE id = #{id}
+    </select>
+
+    <!-- 撤回消息 -->
+    <update id="recallMessage">
+        UPDATE chat_message
+        SET is_recalled = 1,
+            content = '此消息已被撤回'
+        WHERE id = #{id}
+    </update>
+
+    <!-- 删除会话的所有消息 -->
+    <delete id="deleteBySessionId">
+        DELETE FROM chat_message
+        WHERE session_id = #{sessionId}
+    </delete>
+
+</mapper>
