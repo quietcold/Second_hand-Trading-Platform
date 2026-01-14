@@ -1,28 +1,20 @@
-package com.xyz.entity;
+package com.xyz.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
- * 用户实体类
+ * 用户修改信息DTO
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class User {
-    private Long id;
-    private String accountNum;
-    private String password;
+public class UserUpdateDTO {
     private String email;
     private String phone;
     private String nickname;
     private String gender;
     private String image;
     private String bio; // 个人简介
-    private Integer status; // 0-禁用，1-启用
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
 }

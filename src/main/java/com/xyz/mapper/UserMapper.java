@@ -22,8 +22,8 @@ public interface UserMapper {
      * @return
      */
     @Options(useGeneratedKeys = true, keyProperty = "id")
-    @Insert("INSERT INTO user(account_num, password, email, phone, nickname, status, create_time, update_time) " +
-            "VALUES(#{accountNum}, #{password}, #{email}, #{phone}, #{nickname}, #{status}, #{createTime}, #{updateTime})")
+    @Insert("INSERT INTO user(account_num, password, email, phone, nickname, bio, status, create_time, update_time) " +
+            "VALUES(#{accountNum}, #{password}, #{email}, #{phone}, #{nickname}, #{bio}, #{status}, #{createTime}, #{updateTime})")
     int insert(User user);
 
 
@@ -36,5 +36,18 @@ public interface UserMapper {
      */
     @Select("SELECT * FROM user WHERE id = #{id}")
     User findById(Long id);
+
+    /**
+     * 更新用户信息
+     */
+    @Update("UPDATE user SET email = #{email}, phone = #{phone}, nickname = #{nickname}, " +
+            "gender = #{gender}, image = #{image}, bio = #{bio}, update_time = #{updateTime} WHERE id = #{id}")
+    int update(User user);
+
+    /**
+     * 修改用户密码
+     */
+    @Update("UPDATE user SET password = #{password}, update_time = #{updateTime} WHERE id = #{id}")
+    int updatePassword(User user);
 
 }
