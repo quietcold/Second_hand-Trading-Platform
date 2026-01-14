@@ -1,4 +1,4 @@
-package com.xyz.controller;
+package com.xyz.controller.user;
 
 import com.xyz.dto.GoodsDTO;
 import com.xyz.service.GoodsService;
@@ -12,9 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
-@RestController
+@RestController("userGoodsController")
 @RequestMapping("/user/goods")
 @Tag(name = "商品相关接口")
 public class GoodsController {

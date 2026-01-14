@@ -1,4 +1,4 @@
-package com.xyz.controller;
+package com.xyz.controller.user;
 
 import com.xyz.constant.MessageConstant;
 import com.xyz.dto.PasswordUpdateDTO;
@@ -26,7 +26,7 @@ import java.util.Map;
 /**
  * 用户控制器
  */
-@RestController
+@RestController("userUserController")
 @RequestMapping("/user")
 @Tag(name = "用户管理接口", description = "")
 public class UserController {
@@ -146,24 +146,5 @@ public class UserController {
         }
     }
     
-//    /**
-//     * 获取当前用户信息
-//     */
-//    @GetMapping("/info")
-//    public Result<UserVO> getUserInfo(@RequestHeader("Authorization") String token) {
-//        try {
-//            // 从token中解析用户名
-//            String username = JwtUtil.getUsernameFromToken(token.replace("Bearer ", ""));
-//
-//            // 根据用户名获取用户信息
-//            UserVO userVO = userService.findByUsername(username);
-//            if (userVO == null) {
-//                return Result.error("用户不存在");
-//            }
-//
-//            return Result.success(userVO);
-//        } catch (Exception e) {
-//            return Result.error("获取用户信息失败: " + e.getMessage());
-//        }
-//    }
+
 }

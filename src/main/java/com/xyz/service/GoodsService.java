@@ -2,6 +2,7 @@ package com.xyz.service;
 
 import com.xyz.dto.GoodsDTO;
 
+import com.xyz.dto.GoodsQueryDTO;
 import com.xyz.vo.GoodsCardVO;
 import com.xyz.vo.GoodsDetailVO;
 import com.xyz.vo.PageResult;
@@ -48,4 +49,19 @@ public interface GoodsService {
      * 标记商品为租借中
      */
     void markAsRenting(Long goodsId, Long ownerId);
+
+    /**
+     * 管理员违规下架商品（不需要owner_id验证）
+     */
+    void violationOfflineByAdmin(Long goodsId, String reason);
+
+    /**
+     * 管理员恢复违规下架的商品
+     */
+    void restoreGoodsByAdmin(Long goodsId);
+
+    /**
+     * 管理员多条件查询商品
+     */
+    PageResult<GoodsCardVO> queryGoodsByConditions(GoodsQueryDTO query);
 }

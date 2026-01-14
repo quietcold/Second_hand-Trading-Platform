@@ -1,6 +1,5 @@
-package com.xyz.controller;
+package com.xyz.controller.user;
 
-import com.xyz.dto.ChatMessageDTO;
 import com.xyz.dto.ChatSessionDTO;
 import com.xyz.service.ChatService;
 import com.xyz.vo.ChatMessageVO;
@@ -23,7 +22,7 @@ import java.util.List;
  * 聊天HTTP接口控制器
  */
 @RestController
-@RequestMapping("/chat")
+@RequestMapping("/user/chat")
 @Tag(name = "聊天接口")
 @Slf4j
 public class ChatController {

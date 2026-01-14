@@ -1,4 +1,4 @@
-package com.xyz.controller;
+package com.xyz.controller.user;
 
 import com.xyz.dto.CommentDTO;
 import com.xyz.service.CommentService;
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
-@RequestMapping("/comments")
+@RequestMapping("/user/comments")
 @RequiredArgsConstructor
 @Tag(name = "评论接口")
 public class CommentController {

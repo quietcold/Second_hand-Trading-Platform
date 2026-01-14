@@ -29,10 +29,22 @@ public interface GoodsMapper {
     int updateGoodsStatus(@Param("id") Long id, @Param("ownerId") Long ownerId, @Param("status") Integer status);
 
     /**
+     * 管理员更新商品状态（不需要owner_id验证）
+     */
+    @Update("UPDATE goods SET status = #{status} WHERE id = #{id}")
+    int updateGoodsStatusByAdmin(@Param("id") Long id, @Param("status") Integer status);
+
+    /**
      * 查询商品状态
      */
     @Select("SELECT status FROM goods WHERE id = #{id} AND owner_id = #{ownerId}")
     Integer getGoodsStatus(@Param("id") Long id, @Param("ownerId") Long ownerId);
+
+    /**
+     * 管理员查询商品状态（不需要owner_id）
+     */
+    @Select("SELECT status FROM goods WHERE id = #{id}")
+    Integer getGoodsStatusByAdmin(@Param("id") Long id);
 
     /**
      * 更新商品信息（权限校验）
@@ -100,4 +112,7 @@ public interface GoodsMapper {
 
     /** 根据ID查询商品详情 */
     GoodsDetailVO getGoodsDetailById(Long id);
+
+    /** 管理员多条件查询商品（动态SQL） */
+    List<GoodsCardVO> queryGoodsByConditions(@Param("query") com.xyz.dto.GoodsQueryDTO query);
 }

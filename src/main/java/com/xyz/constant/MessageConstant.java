@@ -29,4 +29,25 @@ public  class MessageConstant {
     public static final String CHAT_RECALL_TIME_EXPIRED = "消息发送超过2分钟,无法撤回";
     public static final String CHAT_RECALL_NO_PERMISSION = "只能撤回自己发送的消息";
     public static final String CHAT_MESSAGE_ALREADY_RECALLED = "消息已被撤回";
+    
+    // 分类相关
+    public static final String CATEGORY_NOT_FOUND = "分类不存在";
+    public static final String CATEGORY_CODE_EXISTS = "分类编码已存在";
+    public static final String CATEGORY_HAS_GOODS = "该分类下有商品，无法删除";
+    public static final String CATEGORY_CREATE_SUCCESS = "分类创建成功";
+    public static final String CATEGORY_UPDATE_SUCCESS = "分类更新成功";
+    public static final String CATEGORY_DELETE_SUCCESS = "分类删除成功";
+    public static final String CATEGORY_STATUS_ONLINE = "分类已上架";
+    public static final String CATEGORY_STATUS_OFFLINE = "分类已下架";
+    
+    // 用户管理相关
+    public static final String USER_BAN_SUCCESS = "用户封禁成功";
+    public static final String USER_UNBAN_SUCCESS = "用户解封成功";
+    public static final String ACCOUNT_BANNED = "账号已被封禁，请联系管理员";
+    
+    // 商品管理相关（管理员）
+    public static final String GOODS_VIOLATION_OFFLINE_SUCCESS = "商品违规下架成功";
+    public static final String GOODS_RESTORE_SUCCESS = "商品恢复成功";
+    public static final String GOODS_ALREADY_OFFLINE = "商品已下架";
+    public static final String GOODS_NOT_FOUND = "商品不存在";
 }

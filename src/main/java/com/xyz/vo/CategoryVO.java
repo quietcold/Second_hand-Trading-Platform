@@ -1,4 +1,4 @@
-package com.xyz.entity;
+package com.xyz.vo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,19 +7,19 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-
+/**
+ * 分类VO
+ */
 @Data
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
-public class GoodsCategory {
+@NoArgsConstructor
+public class CategoryVO {
     private Long id;
     private String name;
-    private String code; //AI建议：前端如果想对某个特定分类做特殊UI处理，判断 code 比判断 id (1, 2) 更安全
-    private Integer displayOrder; // 展示顺序，数字越小越靠前
+    private String code;
+    private Integer displayOrder; // 展示顺序
     private Integer status; // 状态：1-上架，0-下架
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-
-
 }

@@ -125,4 +125,68 @@
         LIMIT #{size}
     </select>
 
+    <!-- 管理员多条件查询商品（动态SQL） -->
+    <select id="queryGoodsByConditions" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        <where>
+            <!-- 游标分页 -->
+            <if test="query.cursor != null and query.cursor > 0">
+                AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{query.cursor}
+            </if>
+            
+            <!-- 商品状态 -->
+            <if test="query.status != null">
+                AND g.status = #{query.status}
+            </if>
+            
+            <!-- 分类ID -->
+            <if test="query.categoryId != null">
+                AND g.category_id = #{query.categoryId}
+            </if>
+            
+            <!-- 发布用户ID -->
+            <if test="query.ownerId != null">
+                AND g.owner_id = #{query.ownerId}
+            </if>
+            
+            <!-- 商品类型 -->
+            <if test="query.goodsType != null">
+                AND g.goods_type = #{query.goodsType}
+            </if>
+            
+            <!-- 关键词搜索 -->
+            <if test="query.keyword != null and query.keyword != ''">
+                AND g.description LIKE CONCAT('%', #{query.keyword}, '%')
+            </if>
+            
+            <!-- 价格范围（根据商品类型判断查询售价还是租金） -->
+            <if test="query.minPrice != null">
+                AND (
+                    (g.goods_type = 1 AND g.sell_price >= #{query.minPrice})
+                    OR (g.goods_type = 2 AND g.rent_price >= #{query.minPrice})
+                    OR (g.goods_type = 3 AND (g.sell_price >= #{query.minPrice} OR g.rent_price >= #{query.minPrice}))
+                )
+            </if>
+            <if test="query.maxPrice != null">
+                AND (
+                    (g.goods_type = 1 AND g.sell_price &lt;= #{query.maxPrice})
+                    OR (g.goods_type = 2 AND g.rent_price &lt;= #{query.maxPrice})
+                    OR (g.goods_type = 3 AND (g.sell_price &lt;= #{query.maxPrice} OR g.rent_price &lt;= #{query.maxPrice}))
+                )
+            </if>
+            
+            <!-- 时间范围 -->
+            <if test="query.startTime != null">
+                AND UNIX_TIMESTAMP(g.create_time) * 1000 >= #{query.startTime}
+            </if>
+            <if test="query.endTime != null">
+                AND UNIX_TIMESTAMP(g.create_time) * 1000 &lt;= #{query.endTime}
+            </if>
+        </where>
+        ORDER BY g.update_time DESC
+        LIMIT #{query.size}
+    </select>
+
 </mapper>

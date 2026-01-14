@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * 游标分页响应（用于无限滚动）
+ * 分页响应（支持传统分页和游标分页）
  */
 @Data
 @Builder
@@ -19,11 +19,17 @@ public class PageResult<T> {
     /** 数据列表 */
     private List<T> list;
     
-    /** 下一页游标（本页最后一条的时间戳），前端下次请求带上这个值 */
+    /** 下一页游标（本页最后一条的时间戳），前端下次请求带上这个值（游标分页使用） */
     private Long nextCursor;
     
-    /** 是否还有更多数据 */
+    /** 是否还有更多数据（游标分页使用） */
     private Boolean hasMore;
+    
+    /** 总记录数（传统分页使用） */
+    private Long total;
+    
+    /** 数据列表（传统分页使用） */
+    private List<T> records;
     
     /**
      * 构建分页结果

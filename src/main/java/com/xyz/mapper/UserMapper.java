@@ -1,7 +1,11 @@
 package com.xyz.mapper;
 
 import com.xyz.entity.User;
+import com.xyz.vo.UserListVO;
 import org.apache.ibatis.annotations.*;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 用户Mapper接口
@@ -49,5 +53,50 @@ public interface UserMapper {
      */
     @Update("UPDATE user SET password = #{password}, update_time = #{updateTime} WHERE id = #{id}")
     int updatePassword(User user);
+
+    /**
+     * 分页查询用户列表（管理员）
+     */
+    @Select("SELECT id, account_num AS accountNum, nickname, email, phone, image, status, create_time AS createTime " +
+            "FROM user ORDER BY create_time DESC LIMIT #{offset}, #{size}")
+    List<UserListVO> findUserList(@Param("offset") int offset, @Param("size") int size);
+
+    /**
+     * 查询用户总数
+     */
+    @Select("SELECT COUNT(*) FROM user")
+    int countUsers();
+
+    /**
+     * 更新用户状态（封禁/解封）
+     */
+    @Update("UPDATE user SET status = #{status}, update_time = #{updateTime} WHERE id = #{id}")
+    int updateStatus(@Param("id") Long id, @Param("status") Integer status, @Param("updateTime") java.time.LocalDateTime updateTime);
+
+    /**
+     * 游标分页查询用户列表（根据注册时间倒序）
+     */
+    @Select("SELECT id, account_num AS accountNum, nickname, email, phone, image, status, " +
+            "create_time AS createTime, UNIX_TIMESTAMP(create_time) * 1000 AS createTimeTimestamp " +
+            "FROM user WHERE UNIX_TIMESTAMP(create_time) * 1000 < #{cursor} " +
+            "ORDER BY create_time DESC LIMIT #{size}")
+    List<UserListVO> getUserListByCursor(@Param("cursor") long cursor, @Param("size") int size);
+
+    /**
+     * 查询所有用户ID和注册时间（用于ZSet缓存）
+     */
+    @Select("SELECT id, UNIX_TIMESTAMP(create_time) * 1000 AS createTime FROM user")
+    List<Map<String, Object>> getAllUserIdsWithTime();
+
+    /**
+     * 根据ID集合批量查询用户卡片
+     */
+    @Select("<script>" +
+            "SELECT id, account_num AS accountNum, nickname, email, phone, image, status, " +
+            "create_time AS createTime, UNIX_TIMESTAMP(create_time) * 1000 AS createTimeTimestamp " +
+            "FROM user WHERE id IN " +
+            "<foreach item='id' collection='ids' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "</script>")
+    List<UserListVO> getUserCardsByIds(@Param("ids") List<Long> ids);
 
 }

@@ -39,6 +39,21 @@ public class RedisConstant {
     /** 用户信息缓存过期时间（分钟） */
     public static final long USER_INFO_TTL = 30;
     
+    /** 用户ID ZSet缓存Key - user:list:ids，Score为注册时间戳 */
+    public static final String USER_LIST_IDS_KEY = "user:list:ids";
+    
+    /** 用户列表ZSet缓存过期时间（分钟） */
+    public static final long USER_LIST_IDS_TTL = 60;
+    
+    /** 用户卡片缓存前缀 - user:card:{userId} */
+    public static final String USER_CARD_KEY = "user:card:";
+    
+    /** 用户卡片缓存过期时间（分钟） */
+    public static final long USER_CARD_TTL = 30;
+    
+    /** 用户卡片缓存过期时间随机浮动范围（分钟），防止缓存雪崩 */
+    public static final long USER_CARD_TTL_RANDOM = 5;
+    
     // ========== Token 相关 ==========
     /** JWT Token 黑名单前缀 - token:blacklist:token */
     public static final String TOKEN_BLACKLIST_KEY = "token:blacklist:";

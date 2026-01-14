@@ -5,9 +5,9 @@ import com.xyz.dto.UserLoginDTO;
 import com.xyz.dto.UserRegisterDTO;
 import com.xyz.dto.UserUpdateDTO;
 import com.xyz.entity.User;
-import com.xyz.vo.UserEnterVO;
-import com.xyz.vo.UserInfoVO;
-import com.xyz.vo.UserPublicVO;
+import com.xyz.vo.*;
+
+import java.util.List;
 
 /**
  * 用户服务接口
@@ -42,5 +42,27 @@ public interface UserService {
      * 修改密码
      */
     void updatePassword(Long userId, PasswordUpdateDTO passwordUpdateDTO);
+
+    /**
+     * 游标分页查询用户列表（管理员）
+     * 使用Redis ZSet缓存 + 用户卡片缓存
+     */
+    PageResult<UserListVO> getUserList(Long cursor, int size);
+
+    /**
+     * 获取用户详细信息（管理员）
+     * 复用 getUserInfo，返回 UserDetailVO
+     */
+    UserDetailVO getUserDetail(Long userId);
+
+    /**
+     * 封禁用户
+     */
+    void banUser(Long userId);
+
+    /**
+     * 解封用户
+     */
+    void unbanUser(Long userId);
 
 }

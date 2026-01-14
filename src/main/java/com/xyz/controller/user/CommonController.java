@@ -1,4 +1,4 @@
-package com.xyz.controller;
+package com.xyz.controller.user;
 
 import com.xyz.util.AliOssUtil;
 import com.xyz.vo.Result;
@@ -20,7 +20,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
-@RequestMapping("/common")
+@RequestMapping("/user/common")
 @Tag(name = "通用接口", description = "文件上传等通用功能")
 public class CommonController {
 

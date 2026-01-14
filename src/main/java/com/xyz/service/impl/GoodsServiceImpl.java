@@ -4,6 +4,7 @@ import com.xyz.constant.GoodsStatusConstant;
 import com.xyz.constant.MessageConstant;
 import com.xyz.constant.RedisConstant;
 import com.xyz.dto.GoodsDTO;
+import com.xyz.dto.GoodsQueryDTO;
 import com.xyz.entity.Goods;
 import com.xyz.exception.GoodsInRentException;
 import com.xyz.exception.GoodsNotFoundException;
@@ -490,5 +491,80 @@ public class GoodsServiceImpl implements GoodsService {
                 redisTemplate.opsForZSet().add(ownerKey, goodsId, timestamp);
             }
         }
+    }
+    
+    // ==================== 管理员功能 ====================
+    
+    @Override
+    @Transactional
+    public void violationOfflineByAdmin(Long goodsId, String reason) {
+        // 查询商品状态（不需要owner_id）
+        Integer currentStatus = goodsMapper.getGoodsStatusByAdmin(goodsId);
+        if (currentStatus == null) {
+            throw new GoodsNotFoundException(MessageConstant.GOODS_NOT_FOUND);
+        }
+        
+        // 如果已经是系统屏蔽状态，直接返回
+        if (currentStatus == GoodsStatusConstant.SYSTEM_BLOCKED) {
+            throw new RuntimeException("商品已被违规下架");
+        }
+        
+        // 更新为系统屏蔽状态
+        goodsMapper.updateGoodsStatusByAdmin(goodsId, GoodsStatusConstant.SYSTEM_BLOCKED);
+        
+        // 从 ZSet 中移除
+        removeGoodsFromZSet(goodsId);
+        
+        // 清除商品缓存
+        clearGoodsCache(goodsId);
+        
+        // TODO: 记录违规原因（可以后续扩展，存入日志表）
+        if (reason != null && !reason.trim().isEmpty()) {
+            // log.warn("管理员违规下架商品: goodsId={}, reason={}", goodsId, reason);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void restoreGoodsByAdmin(Long goodsId) {
+        // 查询商品状态
+        Integer currentStatus = goodsMapper.getGoodsStatusByAdmin(goodsId);
+        if (currentStatus == null) {
+            throw new GoodsNotFoundException(MessageConstant.GOODS_NOT_FOUND);
+        }
+        
+        // 只能恢复系统屏蔽的商品
+        if (currentStatus != GoodsStatusConstant.SYSTEM_BLOCKED) {
+            throw new RuntimeException("只能恢复违规下架的商品");
+        }
+        
+        // 恢复为上架状态
+        goodsMapper.updateGoodsStatusByAdmin(goodsId, GoodsStatusConstant.ON_SALE);
+        
+        // 添加到 ZSet
+        updateGoodsScoreInZSet(goodsId);
+    }
+    
+    @Override
+    public PageResult<GoodsCardVO> queryGoodsByConditions(GoodsQueryDTO query) {
+        // 设置默认值
+        if (query.getCursor() == null || query.getCursor() <= 0) {
+            query.setCursor(System.currentTimeMillis());
+        }
+        if (query.getSize() == null || query.getSize() <= 0) {
+            query.setSize(10);
+        }
+        
+        // 查询 size+1 条，用于判断是否还有更多数据
+        int originalSize = query.getSize();
+        query.setSize(originalSize + 1);
+        
+        // 执行查询
+        List<GoodsCardVO> list = goodsMapper.queryGoodsByConditions(query);
+        
+        // 恢复原始 size
+        query.setSize(originalSize);
+        
+        return buildPageResult(list, originalSize);
     }
 }
