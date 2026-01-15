@@ -217,6 +217,150 @@ public class CommentServiceImpl implements CommentService {
         return PageResult.of(replyVOList, nextCursor, hasMore);
     }
 
+    @Override
+    @Transactional
+    public void deleteCommentByAdmin(Long commentId, String reason) {
+        // 查询评论是否存在
+        Comments comment = commentMapper.getCommentByIdWithoutStatus(commentId);
+        if (comment == null) {
+            throw new CommentNotFoundException(MessageConstant.COMMENT_NOT_FOUND);
+        }
+        
+        // 管理员删除评论，状态改为3（违规屏蔽）
+        int rows = commentMapper.deleteCommentByAdmin(commentId);
+        if (rows == 0) {
+            throw new CommentDeleteException("删除评论失败");
+        }
+        
+        log.info("管理员删除评论成功: commentId={}, reason={}", commentId, reason);
+        
+        // 清除相关 Redis 缓存
+        clearCommentCache(comment);
+    }
+
+    @Override
+    @Transactional
+    public void restoreCommentByAdmin(Long commentId) {
+        // 查询评论是否存在
+        Comments comment = commentMapper.getCommentByIdWithoutStatus(commentId);
+        if (comment == null) {
+            throw new CommentNotFoundException(MessageConstant.COMMENT_NOT_FOUND);
+        }
+        
+        // 管理员恢复评论，状态改为1（正常）
+        int rows = commentMapper.restoreCommentByAdmin(commentId);
+        if (rows == 0) {
+            throw new CommentDeleteException("恢复评论失败");
+        }
+        
+        log.info("管理员恢复评论成功: commentId={}", commentId);
+        
+        // 清除相关 Redis 缓存，让下次查询时重新从数据库获取
+        clearCommentCache(comment);
+    }
+
+    /**
+     * 清除评论相关的 Redis 缓存
+     */
+    private void clearCommentCache(Comments comment) {
+        if (comment != null && comment.getParentId() != null) {
+            String countKey = RedisConstant.COMMENT_REPLY_COUNT_KEY + comment.getParentId();
+            String latestKey = RedisConstant.COMMENT_LATEST_REPLY_KEY + comment.getParentId();
+            
+            // 清除缓存
+            redisTemplate.delete(countKey);
+            redisTemplate.delete(latestKey);
+        }
+    }
+
+    @Override
+    public PageResult<CommentVO> getTopCommentsByAdmin(Long goodsId, Long cursor, Integer size) {
+        // 设置默认值
+        if (cursor == null || cursor == 0) {
+            cursor = System.currentTimeMillis();
+        }
+        if (size == null || size <= 0) {
+            size = 10;
+        }
+        
+        // 查询顶层评论（所有状态，多查一条用于判断是否还有更多）
+        List<Comments> comments = commentMapper.getTopCommentsByGoodsIdForAdmin(goodsId, cursor, size + 1);
+        
+        if (comments.isEmpty()) {
+            return PageResult.empty();
+        }
+        
+        // 判断是否还有更多数据
+        boolean hasMore = comments.size() > size;
+        if (hasMore) {
+            comments = comments.subList(0, size);
+        }
+        
+        // 获取下一页游标
+        Long nextCursor = hasMore ? getTimestamp(comments.get(comments.size() - 1).getCreateTime()) : null;
+        
+        // 批量查询回复数量和最新回复
+        List<Long> commentIds = comments.stream().map(Comments::getId).collect(Collectors.toList());
+        Map<Long, Integer> replyCountMap = getReplyCountMap(commentIds);
+        Map<Long, Comments> latestReplyMap = getLatestReplyMap(commentIds);
+        
+        // 构建 CommentVO 列表
+        List<CommentVO> commentVOList = comments.stream()
+                .map(comment -> {
+                    CommentVO vo = buildCommentVO(comment, goodsId);
+                    vo.setReplyCount(replyCountMap.getOrDefault(comment.getId(), 0));
+                    
+                    // 如果有回复，添加最新一条回复
+                    Comments latestReply = latestReplyMap.get(comment.getId());
+                    if (latestReply != null) {
+                        vo.setLatestReply(buildCommentVO(latestReply, goodsId));
+                    }
+                    
+                    return vo;
+                })
+                .collect(Collectors.toList());
+        
+        return PageResult.of(commentVOList, nextCursor, hasMore);
+    }
+
+    @Override
+    public PageResult<CommentVO> getRepliesByAdmin(Long parentId, Long cursor, Integer size) {
+        // 设置默认值
+        if (cursor == null || cursor == 0) {
+            cursor = System.currentTimeMillis();
+        }
+        if (size == null || size <= 0) {
+            size = 20;
+        }
+        
+        // 查询子评论（所有状态，多查一条用于判断是否还有更多）
+        List<Comments> replies = commentMapper.getRepliesByParentIdForAdmin(parentId, cursor, size + 1);
+        
+        if (replies.isEmpty()) {
+            return PageResult.empty();
+        }
+        
+        // 判断是否还有更多数据
+        boolean hasMore = replies.size() > size;
+        if (hasMore) {
+            replies = replies.subList(0, size);
+        }
+        
+        // 获取下一页游标
+        Long nextCursor = hasMore ? getTimestamp(replies.get(replies.size() - 1).getCreateTime()) : null;
+        
+        // 获取父评论的商品ID（用于判断是否为卖家）
+        Comments parentComment = commentMapper.getCommentByIdWithoutStatus(parentId);
+        Long goodsId = parentComment != null ? parentComment.getGoodsId() : null;
+        
+        // 构建 CommentVO 列表
+        List<CommentVO> replyVOList = replies.stream()
+                .map(reply -> buildCommentVO(reply, goodsId))
+                .collect(Collectors.toList());
+        
+        return PageResult.of(replyVOList, nextCursor, hasMore);
+    }
+
     /**
      * 构建 CommentVO
      */
@@ -251,6 +395,9 @@ public class CommentServiceImpl implements CommentService {
                 .likeCount(likeCount.intValue())
                 .hasLiked(Boolean.TRUE.equals(hasLiked))
                 .build();
+        
+        // 单独设置 status
+        vo.setStatus(comment.getStatus());
         
         // 单独设置 createTime，触发自定义 setter 计算 createTimestamp
         vo.setCreateTime(comment.getCreateTime());

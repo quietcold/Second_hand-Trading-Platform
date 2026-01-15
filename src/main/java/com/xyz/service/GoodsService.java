@@ -13,19 +13,6 @@ public interface GoodsService {
     void releaseGoods(GoodsDTO goodsDTO);
 
     /**
-     * 游标分页查询商品列表（用于无限滚动）
-     * @param categoryId 分类ID
-     * @param cursor 游标（时间戳毫秒），首次传null或不传
-     * @param size 每页条数
-     */
-    PageResult<GoodsCardVO> getGoodsPageByCategoryId(long categoryId, Long cursor, int size);
-
-    /**
-     * 游标分页查询用户商品列表
-     */
-    PageResult<GoodsCardVO> getGoodsPageByOwnerId(long ownerId, Long cursor, int size);
-
-    /**
      * 搜索商品（模糊查询）
      */
     PageResult<GoodsCardVO> searchGoods(String keyword, Long cursor, int size);
@@ -64,4 +51,20 @@ public interface GoodsService {
      * 管理员多条件查询商品
      */
     PageResult<GoodsCardVO> queryGoodsByConditions(GoodsQueryDTO query);
+
+    /**
+     * 收藏/取消收藏商品（切换状态）
+     * @param userId 用户ID
+     * @param goodsId 商品ID
+     * @return true-已收藏, false-已取消收藏
+     */
+    boolean toggleFavorite(Long userId, Long goodsId);
+
+    /**
+     * 判断用户是否已收藏某商品
+     * @param userId 用户ID
+     * @param goodsId 商品ID
+     * @return true-已收藏, false-未收藏
+     */
+    boolean isFavorite(Long userId, Long goodsId);
 }

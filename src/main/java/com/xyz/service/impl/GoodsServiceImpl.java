@@ -6,14 +6,17 @@ import com.xyz.constant.RedisConstant;
 import com.xyz.dto.GoodsDTO;
 import com.xyz.dto.GoodsQueryDTO;
 import com.xyz.entity.Goods;
+import com.xyz.entity.GoodsFavorite;
 import com.xyz.exception.GoodsInRentException;
 import com.xyz.exception.GoodsNotFoundException;
 import com.xyz.mapper.GoodsMapper;
+import com.xyz.mapper.GoodsQueryMapper;
 import com.xyz.service.GoodsService;
 import com.xyz.util.BaseContext;
 import com.xyz.vo.GoodsCardVO;
 import com.xyz.vo.GoodsDetailVO;
 import com.xyz.vo.PageResult;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -23,17 +26,25 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class GoodsServiceImpl implements GoodsService {
 
     @Autowired
     private GoodsMapper goodsMapper;
-    
+
+    @Autowired
+    private GoodsQueryServiceImpl goodsQueryServiceImpl;
+
+    @Autowired
+    private GoodsQueryMapper goodsQueryMapper;
+
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
 
@@ -71,56 +82,8 @@ public class GoodsServiceImpl implements GoodsService {
         }
     }
 
-    @Override
-    public PageResult<GoodsCardVO> getGoodsPageByCategoryId(long categoryId, Long cursor, int size) {
-        // 首次请求或cursor为null，使用当前时间
-        long cursorTime = (cursor == null || cursor <= 0) ? System.currentTimeMillis() : cursor;
-        
-        String zsetKey = buildCategoryKey(categoryId);
-        
-        // 尝试从 Redis ZSet 获取ID列表
-        List<Long> ids = getIdsFromZSet(zsetKey, cursorTime, size + 1);
-        
-        List<GoodsCardVO> list;
-        if (ids != null && !ids.isEmpty()) {
-            // ZSet命中，先从缓存批量获取，未命中的再查MySQL
-            list = getGoodsCardsFromCacheOrDB(ids);
-        } else {
-            // ZSet未命中，直接查MySQL并重建缓存
-            list = goodsMapper.getGoodsPageByCategoryId(categoryId, cursorTime, size + 1);
-            rebuildCategoryZSet(categoryId);
-            // 将查询结果存入卡片缓存
-            cacheGoodsCards(list);
-        }
-        
-        return buildPageResult(list, size);
-    }
 
-    @Override
-    public PageResult<GoodsCardVO> getGoodsPageByOwnerId(long ownerId, Long cursor, int size) {
-        long cursorTime = (cursor == null || cursor <= 0) ? System.currentTimeMillis() : cursor;
-        
-        String zsetKey = buildOwnerKey(ownerId);
-        
-        // 尝试从 Redis ZSet 获取ID列表
-        List<Long> ids = getIdsFromZSet(zsetKey, cursorTime, size + 1);
-        
-        List<GoodsCardVO> list;
-        if (ids != null && !ids.isEmpty()) {
-            // ZSet命中，先从缓存批量获取，未命中的再查MySQL
-            list = getGoodsCardsFromCacheOrDB(ids);
-        } else {
-            // ZSet未命中，直接查MySQL并重建缓存
-            list = goodsMapper.getGoodsPageByOwnerId(ownerId, cursorTime, size + 1);
-            rebuildOwnerZSet(ownerId);
-            // 将查询结果存入卡片缓存
-            cacheGoodsCards(list);
-        }
-        
-        return buildPageResult(list, size);
-    }
-
-
+    //TODO:这个搜索功能考虑直接放到GoodsQueryImpl中
     @Override
     public PageResult<GoodsCardVO> searchGoods(String keyword, Long cursor, int size) {
         long cursorTime = (cursor == null || cursor <= 0) ? System.currentTimeMillis() : cursor;
@@ -131,91 +94,16 @@ public class GoodsServiceImpl implements GoodsService {
         if (ids == null || ids.isEmpty()) {
             return PageResult.empty();
         }
-        
+
+        //TODO:考虑怎么复用GoodsQueryImpl中的getGoodsCardsFromCacheOrDB方法
         // 2. 根据ID从Redis缓存批量获取商品卡片，未命中的再查MySQL（已包含时间戳）
         List<GoodsCardVO> list = getGoodsCardsFromCacheOrDB(ids);
         
         return buildPageResult(list, size);
     }
 
-    /**
-     * 从ZSet中获取商品ID列表
-     * @param key ZSet的key
-     * @param cursor 游标时间戳
-     * @param count 获取数量
-     * @return ID列表，如果ZSet不存在返回null
-     */
-    private List<Long> getIdsFromZSet(String key, long cursor, int count) {
-         //❌ 危险写法
-         //(!redisTemplate.hasKey(key)) { ... }
-         //如果 hasKey 返回 null，!null 会抛 NullPointerException
-        if (Boolean.FALSE.equals(redisTemplate.hasKey(key))) {
-            return null;
-        }
-        // reverseRangeByScore: 按score从大到小排序，范围是[min, max]
-        // 这里查询 score < cursor 的数据，按降序取count条
-        Set<ZSetOperations.TypedTuple<Object>> tuples = redisTemplate.opsForZSet()
-                .reverseRangeByScoreWithScores(key, 0, cursor - 1, 0, count);
-        
-        if (tuples == null || tuples.isEmpty()) {
-            return List.of();
-        }
 
-        // ❌ 可能报错
-        // (Long) t.getValue()
-        // Redis返回的可能是Integer，直接转Long会ClassCastException
-        //
-        // ✅ 安全写法
-        // ((Number) t.getValue()).longValue()
-        // Number是Integer和Long的共同父类，再调longValue()转换
-        return tuples.stream()
-                .map(t -> ((Number) t.getValue()).longValue())
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 重建分类ZSet缓存
-     */
-    private void rebuildCategoryZSet(long categoryId) {
-        String key = buildCategoryKey(categoryId);
-        List<Map<String, Object>> data = goodsMapper.getGoodsIdsWithTimeByCategoryId(categoryId);
-        if (data == null || data.isEmpty()) {
-            return;
-        }
-        //TypedTuple.of(value, score)是 Spring Data Redis 提供的静态工厂方法，用于创建 ZSet 元素。
-        //(Long) m.get("id")   // 如果 MySQL 返回的是 Integer，会抛 ClassCastException
-        //((Number) m.get("id")).longValue()  // Number 是 Integer 和 Long 的公共父类
-        Set<ZSetOperations.TypedTuple<Object>> tuples = data.stream()
-                .map(m -> ZSetOperations.TypedTuple.of(
-                        (Object) ((Number) m.get("id")).longValue(),
-                        ((Number) m.get("updateTime")).doubleValue()//score必须是 Double类型
-                ))
-                .collect(Collectors.toSet());
-        
-        redisTemplate.opsForZSet().add(key, tuples);
-        redisTemplate.expire(key, RedisConstant.GOODS_IDS_TTL, TimeUnit.MINUTES);
-    }
-
-    /**
-     * 重建用户商品ZSet缓存
-     */
-    private void rebuildOwnerZSet(long ownerId) {
-        String key = buildOwnerKey(ownerId);
-        List<Map<String, Object>> data = goodsMapper.getGoodsIdsWithTimeByOwnerId(ownerId);
-        if (data == null || data.isEmpty()) {
-            return;
-        }
-        Set<ZSetOperations.TypedTuple<Object>> tuples = data.stream()
-                .map(m -> ZSetOperations.TypedTuple.of(
-                        (Object) ((Number) m.get("id")).longValue(),
-                        ((Number) m.get("updateTime")).doubleValue()
-                ))
-                .collect(Collectors.toSet());
-        
-        redisTemplate.opsForZSet().add(key, tuples);
-        redisTemplate.expire(key, RedisConstant.GOODS_IDS_TTL, TimeUnit.MINUTES);
-    }
-
+    //TODO：getGoodsCardsFromCacheOrDB这个方法在GoodsQueryImpl中已经有了，考虑复用
     /**
      * 从缓存或数据库获取商品卡片列表，缓存未命中的再查MySQL
      * @param ids 商品ID列表
@@ -246,7 +134,7 @@ public class GoodsServiceImpl implements GoodsService {
         
         // 4. 缓存未命中的，从 MySQL 查询并存入缓存
         if (!missIds.isEmpty()) {
-            List<GoodsCardVO> fromDB = goodsMapper.getGoodsCardsByIds(missIds);
+            List<GoodsCardVO> fromDB = goodsQueryMapper.getGoodsCardsByIds(missIds);
             for (GoodsCardVO vo : fromDB) {
                 resultMap.put(vo.getId(), vo);
                 // 存入缓存
@@ -263,20 +151,9 @@ public class GoodsServiceImpl implements GoodsService {
                 .collect(Collectors.toList());
     }
     
-    /**
-     * 批量将商品卡片存入缓存
-     */
-    private void cacheGoodsCards(List<GoodsCardVO> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return;
-        }
-        for (GoodsCardVO vo : cards) {
-            String key = RedisConstant.GOODS_CARD_KEY + vo.getId();
-            long ttl = RedisConstant.GOODS_CARD_TTL + new Random().nextInt(5);
-            redisTemplate.opsForValue().set(key, vo, ttl, TimeUnit.MINUTES);
-        }
-    }
 
+
+    //TODO：这个方法在GoodsQueryImpl中已经有了，考虑复用
     /**
      * 构建分页结果
      */
@@ -492,9 +369,104 @@ public class GoodsServiceImpl implements GoodsService {
             }
         }
     }
+
     
+    // ==================== 收藏相关方法 ====================
+    
+    @Override
+    @Transactional
+    public boolean toggleFavorite(Long userId, Long goodsId) {
+        log.info("切换收藏状态: userId={}, goodsId={}", userId, goodsId);
+
+        // 检查商品是否存在
+        Goods goods = goodsMapper.getGoodsById(goodsId);
+        if (goods == null) {
+            throw new GoodsNotFoundException("商品不存在");
+        }
+
+        // 检查是否已收藏
+        int count = goodsMapper.checkFavorite(userId, goodsId);
+        
+        if (count > 0) {
+            // 已收藏，取消收藏
+            goodsMapper.deleteFavorite(userId, goodsId);
+            // 更新商品收藏数
+            updateGoodsCollectNum(goodsId, -1);
+            // 从 Redis ZSet 中移除
+            removeFromFavoriteZSet(userId, goodsId);
+            log.info("取消收藏成功: userId={}, goodsId={}", userId, goodsId);
+            return false;
+        } else {
+            // 未收藏，添加收藏
+            GoodsFavorite favorite = GoodsFavorite.builder()
+                    .userId(userId)
+                    .goodsId(goodsId)
+                    .createTime(LocalDateTime.now())
+                    .build();
+            goodsMapper.insertFavorite(favorite);
+            // 更新商品收藏数
+            updateGoodsCollectNum(goodsId, 1);
+            // 添加到 Redis ZSet
+            addToFavoriteZSet(userId, goodsId);
+            log.info("收藏成功: userId={}, goodsId={}", userId, goodsId);
+            return true;
+        }
+    }
+
+    @Override
+    public boolean isFavorite(Long userId, Long goodsId) {
+        int count = goodsMapper.checkFavorite(userId, goodsId);
+        return count > 0;
+    }
+    
+    /**
+     * 更新商品收藏数
+     * @param goodsId 商品ID
+     * @param flag 变化量（+1表示添加收藏，-1表示取消收藏）
+     */
+    private void updateGoodsCollectNum(Long goodsId, Integer flag) {
+        try {
+            // 更新商品表的收藏数字段（增量更新）
+            goodsMapper.updateCollectNum(goodsId, flag);
+            log.info("更新商品收藏数: goodsId={}, delta={}", goodsId, flag);
+            // 清除商品卡片缓存，保证数据一致性
+            redisTemplate.delete(RedisConstant.GOODS_CARD_KEY + goodsId);
+        } catch (Exception e) {
+            log.error("更新商品收藏数失败: goodsId={}, error={}", goodsId, e.getMessage());
+            // 不抛出异常，避免影响主流程
+        }
+    }
+    
+    /**
+     * 构建用户收藏列表ZSet Key
+     */
+    private String buildFavoriteZSetKey(Long userId) {
+        return RedisConstant.FAVORITE_USER_IDS_KEY + userId + RedisConstant.FAVORITE_USER_IDS_SUFFIX;
+    }
+    
+    /**
+     * 添加到收藏 ZSet（只有当ZSet已存在时才添加）
+     */
+    private void addToFavoriteZSet(Long userId, Long goodsId) {
+        String key = buildFavoriteZSetKey(userId);
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
+            redisTemplate.opsForZSet().add(key, goodsId, System.currentTimeMillis());
+        }
+    }
+    
+    /**
+     * 从收藏 ZSet 中移除
+     */
+    private void removeFromFavoriteZSet(Long userId, Long goodsId) {
+        String key = buildFavoriteZSetKey(userId);
+        redisTemplate.opsForZSet().remove(key, goodsId);
+    }
+
+
+
+
     // ==================== 管理员功能 ====================
-    
+
     @Override
     @Transactional
     public void violationOfflineByAdmin(Long goodsId, String reason) {
@@ -503,27 +475,27 @@ public class GoodsServiceImpl implements GoodsService {
         if (currentStatus == null) {
             throw new GoodsNotFoundException(MessageConstant.GOODS_NOT_FOUND);
         }
-        
+
         // 如果已经是系统屏蔽状态，直接返回
         if (currentStatus == GoodsStatusConstant.SYSTEM_BLOCKED) {
             throw new RuntimeException("商品已被违规下架");
         }
-        
+
         // 更新为系统屏蔽状态
         goodsMapper.updateGoodsStatusByAdmin(goodsId, GoodsStatusConstant.SYSTEM_BLOCKED);
-        
+
         // 从 ZSet 中移除
         removeGoodsFromZSet(goodsId);
-        
+
         // 清除商品缓存
         clearGoodsCache(goodsId);
-        
+
         // TODO: 记录违规原因（可以后续扩展，存入日志表）
         if (reason != null && !reason.trim().isEmpty()) {
             // log.warn("管理员违规下架商品: goodsId={}, reason={}", goodsId, reason);
         }
     }
-    
+
     @Override
     @Transactional
     public void restoreGoodsByAdmin(Long goodsId) {
@@ -532,19 +504,19 @@ public class GoodsServiceImpl implements GoodsService {
         if (currentStatus == null) {
             throw new GoodsNotFoundException(MessageConstant.GOODS_NOT_FOUND);
         }
-        
+
         // 只能恢复系统屏蔽的商品
         if (currentStatus != GoodsStatusConstant.SYSTEM_BLOCKED) {
             throw new RuntimeException("只能恢复违规下架的商品");
         }
-        
+
         // 恢复为上架状态
         goodsMapper.updateGoodsStatusByAdmin(goodsId, GoodsStatusConstant.ON_SALE);
-        
+
         // 添加到 ZSet
         updateGoodsScoreInZSet(goodsId);
     }
-    
+
     @Override
     public PageResult<GoodsCardVO> queryGoodsByConditions(GoodsQueryDTO query) {
         // 设置默认值
@@ -554,17 +526,17 @@ public class GoodsServiceImpl implements GoodsService {
         if (query.getSize() == null || query.getSize() <= 0) {
             query.setSize(10);
         }
-        
+
         // 查询 size+1 条，用于判断是否还有更多数据
         int originalSize = query.getSize();
         query.setSize(originalSize + 1);
-        
+
         // 执行查询
         List<GoodsCardVO> list = goodsMapper.queryGoodsByConditions(query);
-        
+
         // 恢复原始 size
         query.setSize(originalSize);
-        
+
         return buildPageResult(list, originalSize);
     }
 }

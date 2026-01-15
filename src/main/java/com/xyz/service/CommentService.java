@@ -33,4 +33,24 @@ public interface CommentService {
      * 获取某条评论的所有回复（游标分页）
      */
     PageResult<CommentVO> getReplies(Long parentId, Long cursor, Integer size);
+
+    /**
+     * 管理员删除评论（违规屏蔽）
+     */
+    void deleteCommentByAdmin(Long commentId, String reason);
+
+    /**
+     * 管理员恢复评论
+     */
+    void restoreCommentByAdmin(Long commentId);
+
+    /**
+     * 管理员获取商品的顶层评论列表（包含所有状态）
+     */
+    PageResult<CommentVO> getTopCommentsByAdmin(Long goodsId, Long cursor, Integer size);
+
+    /**
+     * 管理员获取评论的回复列表（包含所有状态）
+     */
+    PageResult<CommentVO> getRepliesByAdmin(Long parentId, Long cursor, Integer size);
 }

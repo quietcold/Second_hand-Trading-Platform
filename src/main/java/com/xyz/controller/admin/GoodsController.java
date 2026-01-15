@@ -3,6 +3,7 @@ package com.xyz.controller.admin;
 import com.xyz.constant.MessageConstant;
 import com.xyz.dto.GoodsQueryDTO;
 import com.xyz.service.GoodsService;
+import com.xyz.service.GoodsQueryService;
 import com.xyz.vo.GoodsCardVO;
 import com.xyz.vo.GoodsDetailVO;
 import com.xyz.vo.PageResult;
@@ -18,11 +19,14 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController("adminGoodsController")
 @RequestMapping("/admin/goods")
-@Tag(name = "管理员-商品管理接口")
+@Tag(name = "商品管理")
 public class GoodsController {
 
     @Autowired
     private GoodsService goodsService;
+    
+    @Autowired
+    private GoodsQueryService goodsQueryService;
 
     /**
      * 分页获取商品列表（按分类）- 复用用户端接口
@@ -33,7 +37,7 @@ public class GoodsController {
             @Parameter(description = "分类ID") @RequestParam Long categoryId,
             @Parameter(description = "游标（首次请求不传或传null）") @RequestParam(required = false) Long cursor,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
-        PageResult<GoodsCardVO> page = goodsService.getGoodsPageByCategoryId(categoryId, cursor, size);
+        PageResult<GoodsCardVO> page = goodsQueryService.getGoodsPageByCategoryId(categoryId, cursor, size);
         return Result.success(page);
     }
 
@@ -46,7 +50,7 @@ public class GoodsController {
             @Parameter(description = "用户ID") @PathVariable Long ownerId,
             @Parameter(description = "游标（首次请求不传或传null）") @RequestParam(required = false) Long cursor,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
-        PageResult<GoodsCardVO> page = goodsService.getGoodsPageByOwnerId(ownerId, cursor, size);
+        PageResult<GoodsCardVO> page = goodsQueryService.getUserPublishedGoods(ownerId, cursor, size);
         return Result.success(page);
     }
 

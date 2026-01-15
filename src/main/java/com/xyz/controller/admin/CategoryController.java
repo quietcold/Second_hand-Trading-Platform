@@ -19,7 +19,7 @@ import java.util.List;
  */
 @RestController("adminCategoryController")
 @RequestMapping("/admin/category")
-@Tag(name = "管理员-分类管理接口")
+@Tag(name = "分类管理")
 public class CategoryController {
 
     @Autowired

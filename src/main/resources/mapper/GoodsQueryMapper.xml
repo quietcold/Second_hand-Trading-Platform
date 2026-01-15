@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xyz.mapper.GoodsQueryMapper">
+
+    <!-- 商品卡片公共字段 -->
+    <sql id="goodsCardColumns">
+        g.id,
+        g.owner_id AS ownerId,
+        g.goods_type AS goodsType,
+        CASE WHEN CHAR_LENGTH(g.description) > 25 
+             THEN CONCAT(SUBSTRING(g.description, 1, 25), '...') 
+             ELSE g.description 
+        END AS briefDescription,
+        g.cover_url AS coverUrl,
+        g.condition_level AS conditionLevel,
+        g.collect_num AS collectNum,
+        g.category_id AS categoryId,
+        g.sell_price AS sellPrice,
+        g.rent_price AS rentPrice,
+        UNIX_TIMESTAMP(g.update_time) * 1000 AS updateTimestamp,
+        u.nickname AS ownerName,
+        u.image AS ownerAvatar
+    </sql>
+
+    <!-- 游标分页查询用户自己的收藏列表（返回商品卡片）,ZSet未命中时，直接查MySQL-->
+    <select id="getFavoriteGoodsByUserId" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods_favorite gf
+        INNER JOIN goods g ON gf.goods_id = g.id
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE gf.user_id = #{userId}
+        AND UNIX_TIMESTAMP(gf.create_time) * 1000 &lt; #{cursor}
+        ORDER BY gf.create_time DESC
+        LIMIT #{size}
+    </select>
+
+    <!-- 游标分页按categoryId查询商品列表（返回商品卡片）,ZSet未命中时，直接查MySQL-->
+    <select id="getGoodsPageByCategoryId" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.category_id = #{categoryId}
+          AND g.status = 1
+          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
+        ORDER BY g.update_time DESC
+        LIMIT #{size}
+    </select>
+
+    <!-- 游标分页按ownerID查询用户发布的商品列表（返回商品卡片）,ZSet未命中时，直接查MySQL -->
+    <select id="getGoodsPageByOwnerId" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.owner_id = #{ownerId}
+          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
+        ORDER BY g.update_time DESC
+        LIMIT #{size}
+    </select>
+
+
+
+    <!-- 根据goodsId列表批量查询商品卡片（返回商品卡片）-->
+    <select id="getGoodsCardsByIds" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY FIELD(g.id,
+        <foreach collection="ids" item="id" separator=",">
+            #{id}
+        </foreach>
+        )
+    </select>
+
+</mapper>

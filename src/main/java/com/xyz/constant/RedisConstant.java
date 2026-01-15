@@ -6,17 +6,6 @@
 public class RedisConstant {
     
     // ========== 商品相关 ==========
-    /** 分类商品ID ZSet缓存前缀 - goods:cat:{categoryId}:ids，Score为更新时间戳 */
-    public static final String GOODS_CAT_IDS_KEY = "goods:cat:";
-    public static final String GOODS_CAT_IDS_SUFFIX = ":ids";
-    
-    /** 用户商品ID ZSet缓存前缀 - goods:owner:{ownerId}:ids，Score为更新时间戳 */
-    public static final String GOODS_OWNER_IDS_KEY = "goods:owner:";
-    public static final String GOODS_OWNER_IDS_SUFFIX = ":ids";
-    
-    /** ZSet缓存过期时间（分钟） */
-    public static final long GOODS_IDS_TTL = 60;
-    
     /** 商品详情缓存前缀 - goods:detail:{goodsId} */
     public static final String GOODS_DETAIL_KEY = "goods:detail:";
     
@@ -25,13 +14,8 @@ public class RedisConstant {
     
     /** 商品详情缓存过期时间随机浮动范围（分钟），防止缓存雪崩 */
     public static final long GOODS_DETAIL_TTL_RANDOM = 5;
-    
-    /** 商品卡片缓存前缀 - goods:card:{goodsId} */
-    public static final String GOODS_CARD_KEY = "goods:card:";
-    
-    /** 商品卡片缓存过期时间（分钟） */
-    public static final long GOODS_CARD_TTL = 30;
-    
+
+
     // ========== 用户相关 ==========
     /** 用户信息缓存前缀 - user:info:userId */
     public static final String USER_INFO_KEY = "user:info:";
@@ -53,11 +37,13 @@ public class RedisConstant {
     
     /** 用户卡片缓存过期时间随机浮动范围（分钟），防止缓存雪崩 */
     public static final long USER_CARD_TTL_RANDOM = 5;
-    
+
+
     // ========== Token 相关 ==========
     /** JWT Token 黑名单前缀 - token:blacklist:token */
     public static final String TOKEN_BLACKLIST_KEY = "token:blacklist:";
-    
+
+
     // ========== 评论相关 ==========
     /** 评论点赞集合前缀 - comment:like:{commentId}，存储点赞该评论的用户ID集合 */
     public static final String COMMENT_LIKE_KEY = "comment:like:";
@@ -76,4 +62,28 @@ public class RedisConstant {
     
     /** 评论统计数据缓存过期时间（分钟） */
     public static final long COMMENT_COUNT_TTL = 30;
+
+
+    // ========== 商品查询相关 ==========
+    /** 用户收藏商品ID ZSet缓存前缀 - favorite:user:{userId}:ids，Score为收藏时间戳 */
+    public static final String FAVORITE_USER_IDS_KEY = "favorite:user:";
+    public static final String FAVORITE_USER_IDS_SUFFIX = ":ids";
+
+    /** 分类商品ID ZSet缓存前缀 - goods:cat:{categoryId}:ids，Score为更新时间戳 */
+    public static final String GOODS_CAT_IDS_KEY = "goods:cat:";
+    public static final String GOODS_CAT_IDS_SUFFIX = ":ids";
+
+    /** 用户商品ID ZSet缓存前缀 - goods:owner:{ownerId}:ids，Score为更新时间戳 */
+    public static final String GOODS_OWNER_IDS_KEY = "goods:owner:";
+    public static final String GOODS_OWNER_IDS_SUFFIX = ":ids";
+
+
+    /** 商品卡片缓存前缀 - goods:card:{goodsId} */
+    public static final String GOODS_CARD_KEY = "goods:card:";
+
+    /** 商品卡片缓存过期时间（分钟） */
+    public static final long GOODS_CARD_TTL = 30;
+
+    /** ZSet缓存过期时间（分钟） */
+    public static final long GOODS_IDS_TTL = 60;
 }

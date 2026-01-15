@@ -23,6 +23,7 @@ public class CommentVO {
     private String content; //评论内容
     private Integer likeCount; //点赞数
     private Long createTimestamp; //创建时间戳（毫秒）
+    private Integer status; //评论状态：1-正常，2-已删除，3-违规屏蔽
     
     @JsonIgnore  // 不返回给前端，只用于内部计算
     private LocalDateTime createTime;

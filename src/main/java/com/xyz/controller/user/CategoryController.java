@@ -16,7 +16,7 @@ import java.util.List;
  */
 @RestController("userCategoryController")
 @RequestMapping("/user/category")
-@Tag(name = "用户-分类查询接口")
+@Tag(name = "分类查询")
 public class CategoryController {
 
     @Autowired

@@ -8,13 +8,16 @@ import com.xyz.vo.GoodsDetailVO;
 import com.xyz.vo.PageResult;
 import com.xyz.vo.Result;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @RestController("userGoodsController")
 @RequestMapping("/user/goods")
-@Tag(name = "商品相关接口")
+@Tag(name = "商品管理")
 public class GoodsController {
 
     @Autowired
@@ -26,28 +29,6 @@ public class GoodsController {
         goodsService.releaseGoods(goodsDTO);
         return Result.success("发布成功");
     }
-
-    @GetMapping("/page")
-    @Operation(summary = "分页获取商品列表（无限滚动）")
-    public Result<PageResult<GoodsCardVO>> getGoodsPage(
-            @RequestParam Long categoryId,
-            @RequestParam(required = false) Long cursor,
-            @RequestParam(defaultValue = "10") Integer size) {
-        PageResult<GoodsCardVO> page = goodsService.getGoodsPageByCategoryId(categoryId, cursor, size);
-        return Result.success(page);
-    }
-
-    @GetMapping("/my/page")
-    @Operation(summary = "分页获取当前用户的商品列表（无限滚动）")
-    public Result<PageResult<GoodsCardVO>> getMyGoodsPage(
-            @RequestParam(required = false) Long cursor,
-            @RequestParam(defaultValue = "10") Integer size) {
-        Long currentUserId = BaseContext.getCurrentId();
-        PageResult<GoodsCardVO> page = goodsService.getGoodsPageByOwnerId(currentUserId, cursor, size);
-        return Result.success(page);
-    }
-
-
 
     @GetMapping("/search")
     @Operation(summary = "搜索商品")
@@ -114,5 +95,46 @@ public class GoodsController {
         Long currentUserId = BaseContext.getCurrentId();
         goodsService.markAsRenting(id, currentUserId);
         return Result.success("已标记为租借中");
+    }
+
+    // ==================== 收藏相关接口 ====================
+
+    /**
+     * 收藏/取消收藏商品（切换状态）
+     */
+    @PostMapping("/{id}/favorite")
+    @Operation(summary = "收藏/取消收藏商品")
+    public Result<String> toggleFavorite(
+            @Parameter(description = "商品ID") @PathVariable Long id) {
+        try {
+            Long userId = BaseContext.getCurrentId();
+            boolean isFavorited = goodsService.toggleFavorite(userId, id);
+
+            if (isFavorited) {
+                return Result.success("收藏成功");
+            } else {
+                return Result.success("取消收藏成功");
+            }
+        } catch (Exception e) {
+            log.error("切换收藏状态失败: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 判断用户是否已收藏某商品
+     */
+    @GetMapping("/{id}/favorite")
+    @Operation(summary = "检查是否已收藏")
+    public Result<Boolean> checkFavorite(
+            @Parameter(description = "商品ID") @PathVariable Long id) {
+        try {
+            Long userId = BaseContext.getCurrentId();
+            boolean isFavorited = goodsService.isFavorite(userId, id);
+            return Result.success(isFavorited);
+        } catch (Exception e) {
+            log.error("检查收藏状态失败: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        }
     }
 }

@@ -21,7 +21,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/user/common")
-@Tag(name = "通用接口", description = "文件上传等通用功能")
+@Tag(name = "通用接口")
 public class CommonController {
 
     @Autowired

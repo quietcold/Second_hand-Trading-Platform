@@ -1,6 +1,7 @@
 package com.xyz.mapper;
 
 import com.xyz.entity.Goods;
+import com.xyz.entity.GoodsFavorite;
 import com.xyz.vo.GoodsCardVO;
 import com.xyz.vo.GoodsDetailVO;
 import org.apache.ibatis.annotations.*;
@@ -35,6 +36,44 @@ public interface GoodsMapper {
     int updateGoodsStatusByAdmin(@Param("id") Long id, @Param("status") Integer status);
 
     /**
+     * 更新商品收藏数（增量更新）
+     */
+    @Update("UPDATE goods SET collect_num = collect_num + #{delta} WHERE id = #{id}")
+    int updateCollectNum(@Param("id") Long id, @Param("delta") Integer delta);
+
+    // ==================== 收藏相关 ====================
+
+    /**
+     * 添加收藏
+     */
+    @Insert("INSERT INTO goods_favorite(user_id, goods_id, create_time) " +
+            "VALUES(#{userId}, #{goodsId}, #{createTime})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insertFavorite(GoodsFavorite goodsFavorite);
+
+    /**
+     * 取消收藏
+     */
+    @Delete("DELETE FROM goods_favorite WHERE user_id = #{userId} AND goods_id = #{goodsId}")
+    int deleteFavorite(@Param("userId") Long userId, @Param("goodsId") Long goodsId);
+
+    /**
+     * 判断用户是否已收藏某商品
+     */
+    @Select("SELECT COUNT(*) FROM goods_favorite WHERE user_id = #{userId} AND goods_id = #{goodsId}")
+    int checkFavorite(@Param("userId") Long userId, @Param("goodsId") Long goodsId);
+
+    /**
+     * 根据ID查询商品
+     */
+    @Select("SELECT * FROM goods WHERE id = #{id}")
+    @Results(id = "goodsResultMap", value = {
+            @Result(property = "imageUrls", column = "image_urls", 
+                    typeHandler = com.xyz.handler.ListStringTypeHandler.class)
+    })
+    Goods getGoodsById(Long id);
+
+    /**
      * 查询商品状态
      */
     @Select("SELECT status FROM goods WHERE id = #{id} AND owner_id = #{ownerId}")
@@ -57,30 +96,6 @@ public interface GoodsMapper {
     int updateGoods(Goods goods);
 
     /**
-     * 根据分类ID查询所有商品的ID和更新时间戳（用于初始化ZSet缓存）
-     */
-    @Select("SELECT id, UNIX_TIMESTAMP(update_time) * 1000 AS updateTime FROM goods " +
-            "WHERE category_id = #{categoryId} AND status = 1")
-    List<Map<String, Object>> getGoodsIdsWithTimeByCategoryId(long categoryId);
-
-    /**
-     * 根据用户ID查询所有商品的ID和更新时间戳
-     */
-    @Select("SELECT id, UNIX_TIMESTAMP(update_time) * 1000 AS updateTime FROM goods " +
-            "WHERE owner_id = #{ownerId}")
-    List<Map<String, Object>> getGoodsIdsWithTimeByOwnerId(long ownerId);
-    
-    /**
-     * 游标分页查询用户商品ID列表
-     */
-    @Select("SELECT id FROM goods WHERE owner_id = #{ownerId} " +
-            "AND UNIX_TIMESTAMP(update_time) * 1000 < #{cursor} " +
-            "ORDER BY update_time DESC LIMIT #{size}")
-    List<Long> getGoodsIdsByOwnerId(@Param("ownerId") long ownerId,
-                                    @Param("cursor") long cursor,
-                                    @Param("size") int size);
-
-    /**
      * 根据商品ID查询商品的分类ID、用户ID和更新时间戳
      */
     @Select("SELECT category_id AS categoryId, owner_id AS ownerId, " +
@@ -88,19 +103,6 @@ public interface GoodsMapper {
     Map<String, Object> getGoodsCategoryAndTimeById(Long goodsId);
 
     // ========== 以下方法SQL较长，实现在 GoodsMapper.xml 中 ==========
-
-    /** 游标分页查询商品列表（按分类） */
-    List<GoodsCardVO> getGoodsPageByCategoryId(@Param("categoryId") long categoryId,
-                                               @Param("cursor") long cursor,
-                                               @Param("size") int size);
-
-    /** 游标分页查询用户商品列表 */
-    List<GoodsCardVO> getGoodsPageByOwnerId(@Param("ownerId") long ownerId,
-                                            @Param("cursor") long cursor,
-                                            @Param("size") int size);
-
-    /** 根据ID列表批量查询商品卡片信息 */
-    List<GoodsCardVO> getGoodsCardsByIds(@Param("ids") List<Long> ids);
 
     /** 根据ID查询商品卡片信息 */
     GoodsCardVO getGoodsCardById(Long id);

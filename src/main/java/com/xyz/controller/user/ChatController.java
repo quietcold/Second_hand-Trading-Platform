@@ -23,7 +23,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/user/chat")
-@Tag(name = "聊天接口")
+@Tag(name = "聊天管理")
 @Slf4j
 public class ChatController {
     

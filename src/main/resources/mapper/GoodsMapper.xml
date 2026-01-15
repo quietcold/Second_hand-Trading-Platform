@@ -42,45 +42,6 @@
         u.image AS ownerAvatar
     </sql>
 
-    <!-- 游标分页查询商品列表（按分类） -->
-    <select id="getGoodsPageByCategoryId" resultType="com.xyz.vo.GoodsCardVO">
-        SELECT <include refid="goodsCardColumns"/>
-        FROM goods g
-        LEFT JOIN user u ON g.owner_id = u.id
-        WHERE g.category_id = #{categoryId}
-          AND g.status = 1
-          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
-        ORDER BY g.update_time DESC
-        LIMIT #{size}
-    </select>
-
-    <!-- 游标分页查询用户商品列表 -->
-    <select id="getGoodsPageByOwnerId" resultType="com.xyz.vo.GoodsCardVO">
-        SELECT <include refid="goodsCardColumns"/>
-        FROM goods g
-        LEFT JOIN user u ON g.owner_id = u.id
-        WHERE g.owner_id = #{ownerId}
-          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
-        ORDER BY g.update_time DESC
-        LIMIT #{size}
-    </select>
-
-    <!-- 根据ID列表批量查询商品卡片 -->
-    <select id="getGoodsCardsByIds" resultType="com.xyz.vo.GoodsCardVO">
-        SELECT <include refid="goodsCardColumns"/>
-        FROM goods g
-        LEFT JOIN user u ON g.owner_id = u.id
-        WHERE g.id IN
-        <foreach collection="ids" item="id" open="(" separator="," close=")">
-            #{id}
-        </foreach>
-        ORDER BY FIELD(g.id,
-        <foreach collection="ids" item="id" separator=",">
-            #{id}
-        </foreach>
-        )
-    </select>
-
     <!-- 根据ID查询单个商品卡片 -->
     <select id="getGoodsCardById" resultType="com.xyz.vo.GoodsCardVO">
         SELECT <include refid="goodsCardColumns"/>

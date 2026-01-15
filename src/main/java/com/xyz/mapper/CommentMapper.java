@@ -86,4 +86,44 @@ public interface CommentMapper {
      */
     @Select("SELECT owner_id FROM goods WHERE id = #{goodsId}")
     Long getSellerIdByGoodsId(Long goodsId);
+
+    /**
+     * 管理员删除评论（违规屏蔽，状态改为3）
+     */
+    @Update("UPDATE comments SET status = 3 WHERE id = #{id}")
+    int deleteCommentByAdmin(Long id);
+
+    /**
+     * 管理员恢复评论（状态改为1）
+     */
+    @Update("UPDATE comments SET status = 1 WHERE id = #{id}")
+    int restoreCommentByAdmin(Long id);
+
+    /**
+     * 根据ID查询评论（不限制状态）
+     */
+    @Select("SELECT * FROM comments WHERE id = #{id}")
+    Comments getCommentByIdWithoutStatus(Long id);
+
+    /**
+     * 管理员查询商品的顶层评论（所有状态）
+     */
+    @Select("SELECT * FROM comments " +
+            "WHERE goods_id = #{goodsId} AND parent_id IS NULL " +
+            "AND UNIX_TIMESTAMP(create_time) * 1000 < #{cursor} " +
+            "ORDER BY create_time DESC LIMIT #{size}")
+    List<Comments> getTopCommentsByGoodsIdForAdmin(@Param("goodsId") Long goodsId,
+                                                    @Param("cursor") Long cursor,
+                                                    @Param("size") Integer size);
+
+    /**
+     * 管理员查询评论的回复（所有状态）
+     */
+    @Select("SELECT * FROM comments " +
+            "WHERE parent_id = #{parentId} " +
+            "AND UNIX_TIMESTAMP(create_time) * 1000 < #{cursor} " +
+            "ORDER BY create_time DESC LIMIT #{size}")
+    List<Comments> getRepliesByParentIdForAdmin(@Param("parentId") Long parentId,
+                                                 @Param("cursor") Long cursor,
+                                                 @Param("size") Integer size);
 }

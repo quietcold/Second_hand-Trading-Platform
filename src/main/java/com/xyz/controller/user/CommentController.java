@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/user/comments")
 @RequiredArgsConstructor
-@Tag(name = "评论接口")
+@Tag(name = "评论管理")
 public class CommentController {
 
     private final CommentService commentService;
