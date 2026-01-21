@@ -54,6 +54,12 @@ public class GoodsServiceImpl implements GoodsService {
         // 从上下文获取当前用户ID
         Long currentUserId = BaseContext.getCurrentId();
         
+        // 验证图片列表不为空（至少一张）
+        List<String> imageUrls = goodsDTO.getImageUrls();
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            throw new RuntimeException("请至少上传一张图片噢");
+        }
+        
         Goods goods = new Goods();
         BeanUtils.copyProperties(goodsDTO, goods);
         goods.setCollectNum(0);
@@ -62,23 +68,28 @@ public class GoodsServiceImpl implements GoodsService {
         goods.setStatus(GoodsStatusConstant.ON_SALE);
         
         // 设置封面图（取第一张）
-        List<String> imageUrls = goodsDTO.getImageUrls();
-        if (imageUrls != null && !imageUrls.isEmpty()) {
-            goods.setCoverUrl(imageUrls.get(0));
-        }
+        goods.setCoverUrl(imageUrls.get(0));
         
         goodsMapper.insertGoods(goods);
         
-        // 添加到分类ZSet缓存（只有当ZSet已存在时才添加）
-        String catKey = buildCategoryKey(goodsDTO.getCategoryId());
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(catKey))) {
-            redisTemplate.opsForZSet().add(catKey, goods.getId(), System.currentTimeMillis());
+        // 添加到分类ZSet缓存（只有当分类ID不为空且ZSet已存在时才添加）
+        if (goodsDTO.getCategoryId() != null) {
+            String catKey = buildCategoryKey(goodsDTO.getCategoryId());
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(catKey))) {
+                redisTemplate.opsForZSet().add(catKey, goods.getId(), System.currentTimeMillis());
+            }
         }
         
         // 添加到用户商品ZSet缓存（只有当ZSet已存在时才添加）
         String ownerKey = buildOwnerKey(goods.getOwnerId());
         if (Boolean.TRUE.equals(redisTemplate.hasKey(ownerKey))) {
             redisTemplate.opsForZSet().add(ownerKey, goods.getId(), System.currentTimeMillis());
+        }
+        
+        // 添加到所有商品ZSet缓存（只有当ZSet已存在时才添加）
+        String allGoodsKey = RedisConstant.GOODS_ALL_IDS_KEY + RedisConstant.GOODS_ALL_IDS_SUFFIX;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(allGoodsKey))) {
+            redisTemplate.opsForZSet().add(allGoodsKey, goods.getId(), System.currentTimeMillis());
         }
     }
 
@@ -187,6 +198,13 @@ public class GoodsServiceImpl implements GoodsService {
         return RedisConstant.GOODS_OWNER_IDS_KEY + ownerId + RedisConstant.GOODS_OWNER_IDS_SUFFIX;
     }
 
+    /**
+     * 构建用户下架商品ZSet Key
+     */
+    private String buildOfflineKey(long ownerId) {
+        return RedisConstant.GOODS_OFFLINE_IDS_KEY + ownerId + RedisConstant.GOODS_OFFLINE_IDS_SUFFIX;
+    }
+
     @Override
     @Transactional
     public void offlineGoods(Long goodsId, Long ownerId) {
@@ -204,10 +222,13 @@ public class GoodsServiceImpl implements GoodsService {
         // 3. 将状态更新为已下架
         goodsMapper.updateGoodsStatus(goodsId, ownerId, GoodsStatusConstant.OFF_SHELF);
         
-        // 4. 从 ZSet 中移除
+        // 4. 从上架商品 ZSet 中移除
         removeGoodsFromZSet(goodsId);
         
-        // 5. 清除商品缓存
+        // 5. 添加到下架商品 ZSet 中
+        addGoodsToOfflineZSet(goodsId, ownerId);
+        
+        // 6. 清除商品缓存
         clearGoodsCache(goodsId);
     }
 
@@ -271,8 +292,14 @@ public class GoodsServiceImpl implements GoodsService {
             throw new GoodsNotFoundException(MessageConstant.GOODS_NOT_FOUND_OR_NO_PERMISSION);
         }
         
-        // 添加到 ZSet
+        // 从下架商品 ZSet 中移除
+        removeGoodsFromOfflineZSet(goodsId, ownerId);
+        
+        // 添加到上架商品 ZSet 中
         updateGoodsScoreInZSet(goodsId);
+        
+        // 清除商品缓存
+        clearGoodsCache(goodsId);
     }
 
     @Override
@@ -332,23 +359,30 @@ public class GoodsServiceImpl implements GoodsService {
     }
     
     /**
-     * 从zSet中移除商品（分类缓存 + 用户缓存）
+     * 从zSet中移除商品（分类缓存 + 用户缓存 + 全局缓存）
      */
     private void removeGoodsFromZSet(Long goodsId) {
         Map<String, Object> info = goodsMapper.getGoodsCategoryAndTimeById(goodsId);
         if (info != null) {
-            // 从分类ZSet移除
-            String catKey = buildCategoryKey(((Number) info.get("categoryId")).longValue());
-            redisTemplate.opsForZSet().remove(catKey, goodsId);
+            // 从分类ZSet移除（categoryId 可能为 null）
+            Object categoryIdObj = info.get("categoryId");
+            if (categoryIdObj != null) {
+                String catKey = buildCategoryKey(((Number) categoryIdObj).longValue());
+                redisTemplate.opsForZSet().remove(catKey, goodsId);
+            }
             
             // 从用户ZSet移除
             String ownerKey = buildOwnerKey(((Number) info.get("ownerId")).longValue());
             redisTemplate.opsForZSet().remove(ownerKey, goodsId);
+            
+            // 从全局所有商品ZSet移除
+            String allGoodsKey = RedisConstant.GOODS_ALL_IDS_KEY + RedisConstant.GOODS_ALL_IDS_SUFFIX;
+            redisTemplate.opsForZSet().remove(allGoodsKey, goodsId);
         }
     }
     
     /**
-     * 添加/更新商品在ZSet中的score（分类缓存 + 用户缓存）
+     * 添加/更新商品在ZSet中的score（分类缓存 + 用户缓存 + 全局缓存）
      * ZSet的add是幂等的：不存在则添加，存在则更新score
      */
     private void updateGoodsScoreInZSet(Long goodsId) {
@@ -356,16 +390,25 @@ public class GoodsServiceImpl implements GoodsService {
         if (info != null) {
             long timestamp = ((Number) info.get("updateTime")).longValue();
             
-            // 更新分类ZSet
-            String catKey = buildCategoryKey(((Number) info.get("categoryId")).longValue());
-            if (Boolean.TRUE.equals(redisTemplate.hasKey(catKey))) {
-                redisTemplate.opsForZSet().add(catKey, goodsId, timestamp);
+            // 更新分类ZSet（categoryId 可能为 null）
+            Object categoryIdObj = info.get("categoryId");
+            if (categoryIdObj != null) {
+                String catKey = buildCategoryKey(((Number) categoryIdObj).longValue());
+                if (Boolean.TRUE.equals(redisTemplate.hasKey(catKey))) {
+                    redisTemplate.opsForZSet().add(catKey, goodsId, timestamp);
+                }
             }
             
             // 更新用户ZSet
             String ownerKey = buildOwnerKey(((Number) info.get("ownerId")).longValue());
             if (Boolean.TRUE.equals(redisTemplate.hasKey(ownerKey))) {
                 redisTemplate.opsForZSet().add(ownerKey, goodsId, timestamp);
+            }
+            
+            // 更新全局所有商品ZSet
+            String allGoodsKey = RedisConstant.GOODS_ALL_IDS_KEY + RedisConstant.GOODS_ALL_IDS_SUFFIX;
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(allGoodsKey))) {
+                redisTemplate.opsForZSet().add(allGoodsKey, goodsId, timestamp);
             }
         }
     }
@@ -538,5 +581,24 @@ public class GoodsServiceImpl implements GoodsService {
         query.setSize(originalSize);
 
         return buildPageResult(list, originalSize);
+    }
+
+    /**
+     * 将商品添加到下架商品ZSet缓存中
+     */
+    private void addGoodsToOfflineZSet(Long goodsId, Long ownerId) {
+        String offlineKey = buildOfflineKey(ownerId);
+        // 只有当ZSet已存在时才添加
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(offlineKey))) {
+            redisTemplate.opsForZSet().add(offlineKey, goodsId, System.currentTimeMillis());
+        }
+    }
+
+    /**
+     * 从下架商品ZSet缓存中移除商品
+     */
+    private void removeGoodsFromOfflineZSet(Long goodsId, Long ownerId) {
+        String offlineKey = buildOfflineKey(ownerId);
+        redisTemplate.opsForZSet().remove(offlineKey, goodsId);
     }
 }

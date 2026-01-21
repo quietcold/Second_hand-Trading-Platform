@@ -30,6 +30,11 @@ public interface ChatMessageMapper {
     void markAsRead(@Param("sessionId") String sessionId, @Param("receiverId") Long receiverId);
     
     /**
+     * 查询未读消息（用于推送已读通知）
+     */
+    List<ChatMessage> getUnreadMessagesByReceiver(@Param("sessionId") String sessionId, @Param("receiverId") Long receiverId);
+    
+    /**
      * 根据ID查询消息
      */
     ChatMessage getById(Long id);

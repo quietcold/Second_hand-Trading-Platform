@@ -21,6 +21,8 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/user/login",
                         "/user/register",
+                        "/admin/login",      // 管理员登录接口不需要token
+                        "/admin/logout",     // 管理员退出接口不需要token
                         "/doc.html",
                         "/swagger-ui.html",
                         "/swagger-ui/**",

@@ -84,6 +84,13 @@ public class AliOssUtil {
     }
 
     /**
+     * 上传聊天图片
+     */
+    public String uploadChatImage(MultipartFile file) {
+        return upload(file, "chat");
+    }
+
+    /**
      * 删除文件
      *
      * @param fileUrl 文件URL

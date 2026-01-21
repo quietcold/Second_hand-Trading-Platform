@@ -77,6 +77,14 @@ public class RedisConstant {
     public static final String GOODS_OWNER_IDS_KEY = "goods:owner:";
     public static final String GOODS_OWNER_IDS_SUFFIX = ":ids";
 
+    /** 所有商品ID ZSet缓存Key - goods:all:ids，Score为更新时间戳 */
+    public static final String GOODS_ALL_IDS_KEY = "goods:all";
+    public static final String GOODS_ALL_IDS_SUFFIX = ":ids";
+
+    /** 用户下架商品ID ZSet缓存前缀 - goods:offline:{ownerId}:ids，Score为更新时间戳 */
+    public static final String GOODS_OFFLINE_IDS_KEY = "goods:offline:";
+    public static final String GOODS_OFFLINE_IDS_SUFFIX = ":ids";
+
 
     /** 商品卡片缓存前缀 - goods:card:{goodsId} */
     public static final String GOODS_CARD_KEY = "goods:card:";

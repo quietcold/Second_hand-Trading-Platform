@@ -3,7 +3,6 @@ package com.xyz.service;
 import com.xyz.dto.PasswordUpdateDTO;
 import com.xyz.dto.UserLoginDTO;
 import com.xyz.dto.UserRegisterDTO;
-import com.xyz.dto.UserUpdateDTO;
 import com.xyz.entity.User;
 import com.xyz.vo.*;
 
@@ -29,9 +28,9 @@ public interface UserService {
     UserInfoVO getUserInfo(Long userId);
 
     /**
-     * 更新用户信息
+     * 修改基础资料（昵称、手机号、邮箱、个人简介）
      */
-    UserInfoVO updateUserInfo(Long userId, UserUpdateDTO updateDTO);
+    UserInfoVO updateProfile(Long userId, String nickname, String phone, String email, String bio);
 
     /**
      * 获取用户公开信息（查看其他用户）
@@ -42,6 +41,11 @@ public interface UserService {
      * 修改密码
      */
     void updatePassword(Long userId, PasswordUpdateDTO passwordUpdateDTO);
+
+    /**
+     * 修改头像
+     */
+    UserInfoVO updateAvatar(Long userId, String avatar);
 
     /**
      * 游标分页查询用户列表（管理员）

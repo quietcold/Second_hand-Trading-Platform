@@ -40,6 +40,15 @@
           AND receiver_id = #{receiverId}
           AND is_read = 0
     </update>
+    
+    <!-- 查询未读消息（用于推送已读通知） -->
+    <select id="getUnreadMessagesByReceiver" resultMap="ChatMessageResultMap">
+        SELECT * FROM chat_message
+        WHERE session_id = #{sessionId}
+          AND receiver_id = #{receiverId}
+          AND is_read = 0
+        ORDER BY send_time ASC
+    </select>
 
     <!-- 根据ID查询消息 -->
     <select id="getById" resultMap="ChatMessageResultMap">

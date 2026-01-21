@@ -123,7 +123,7 @@ public class CommentServiceImpl implements CommentService {
         redisTemplate.expire(commentLikeKey, RedisConstant.COMMENT_LIKE_TTL, TimeUnit.MINUTES);
         redisTemplate.expire(userLikeKey, RedisConstant.COMMENT_LIKE_TTL, TimeUnit.MINUTES);
         
-        // 异步更新数据库点赞数
+        // 更新数据库点赞数
         Long likeCount = redisTemplate.opsForSet().size(commentLikeKey);
         commentMapper.updateLikeCount(commentId, likeCount != null ? likeCount.intValue() : 0);
     }
@@ -175,7 +175,17 @@ public class CommentServiceImpl implements CommentService {
                 })
                 .collect(Collectors.toList());
         
-        return PageResult.of(commentVOList, nextCursor, hasMore);
+        // 查询该商品的评论总数（只在第一页查询）
+        Long total = null;
+        if (cursor >= System.currentTimeMillis() - 1000) {
+            // 查询该商品的顶层评论总数
+            total = commentMapper.countTopCommentsByGoodsId(goodsId);
+        }
+        
+        // 构建返回结果
+        PageResult<CommentVO> result = PageResult.of(commentVOList, nextCursor, hasMore);
+        result.setTotal(total);
+        return result;
     }
 
     @Override
@@ -185,7 +195,7 @@ public class CommentServiceImpl implements CommentService {
             cursor = System.currentTimeMillis();
         }
         if (size == null || size <= 0) {
-            size = 20;
+            size = 5; // 默认每次加载5条回复
         }
         
         // 查询子评论（多查一条用于判断是否还有更多）

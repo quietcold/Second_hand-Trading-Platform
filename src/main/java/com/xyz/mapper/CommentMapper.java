@@ -126,4 +126,10 @@ public interface CommentMapper {
     List<Comments> getRepliesByParentIdForAdmin(@Param("parentId") Long parentId,
                                                  @Param("cursor") Long cursor,
                                                  @Param("size") Integer size);
+    
+    /**
+     * 统计商品的顶层评论总数
+     */
+    @Select("SELECT COUNT(*) FROM comments WHERE goods_id = #{goodsId} AND parent_id IS NULL AND status = 1")
+    Long countTopCommentsByGoodsId(@Param("goodsId") Long goodsId);
 }

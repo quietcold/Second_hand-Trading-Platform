@@ -57,7 +57,7 @@ public class CommonController {
      */
     @PostMapping("/upload/goods")
     @Operation(summary = "上传商品图片（支持多张）")
-    public Result<List<String>> uploadGoodsImages(@RequestParam("files") MultipartFile[] files) {
+    public Result<List<String>> uploadGoodsImages(@RequestParam(value = "files", required = false) MultipartFile[] files) {
         if (files == null || files.length == 0) {
             return Result.error("请选择要上传的文件");
         }
@@ -88,5 +88,30 @@ public class CommonController {
         }
         
         return Result.success("上传成功", urls);
+    }
+
+    /**
+     * 上传聊天图片（单张）
+     */
+    @PostMapping("/upload/chat")
+    @Operation(summary = "上传聊天图片")
+    public Result<String> uploadChatImage(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return Result.error("请选择要上传的文件");
+        }
+        
+        // 校验文件类型
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return Result.error("只能上传图片文件");
+        }
+        
+        // 校验文件大小（最大5MB）
+        if (file.getSize() > 5 * 1024 * 1024) {
+            return Result.error("图片文件大小不能超过5MB");
+        }
+        
+        String url = aliOssUtil.uploadChatImage(file);
+        return Result.success("上传成功", url);
     }
 }

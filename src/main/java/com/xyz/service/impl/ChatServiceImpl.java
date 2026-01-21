@@ -2,6 +2,7 @@ package com.xyz.service.impl;
 
 import com.xyz.constant.ChatConstant;
 import com.xyz.constant.MessageConstant;
+import com.xyz.constant.RedisConstant;
 import com.xyz.dto.ChatMessageDTO;
 import com.xyz.dto.ChatSessionDTO;
 import com.xyz.entity.ChatMessage;
@@ -55,16 +56,21 @@ public class ChatServiceImpl implements ChatService {
     private RedisTemplate<String, Object> redisTemplate;
     
     private static final String ONLINE_USERS_KEY = "chat:online:user:";
-    private static final String USER_INFO_CACHE_KEY = "user:info:";
     private static final String UNREAD_TOTAL_CACHE_KEY = "chat:unread:total:";
     
     /**
-     * 生成会话ID
+     * 生成会话ID（包含商品ID）
      */
-    private String generateSessionId(Long userId1, Long userId2) {
+    private String generateSessionId(Long userId1, Long userId2, Long goodsId) {
         Long minId = Math.min(userId1, userId2);
         Long maxId = Math.max(userId1, userId2);
-        return minId + "_" + maxId;
+        // 如果有商品ID，格式为：minUserId_maxUserId_goodsId
+        // 如果没有商品ID，格式为：minUserId_maxUserId
+        if (goodsId != null) {
+            return minId + "_" + maxId + "_" + goodsId;
+        } else {
+            return minId + "_" + maxId;
+        }
     }
     
     @Override
@@ -72,9 +78,10 @@ public class ChatServiceImpl implements ChatService {
     public String createOrGetSession(ChatSessionDTO chatSessionDTO) {
         Long currentUserId = BaseContext.getCurrentId();
         Long receiverId = chatSessionDTO.getReceiverId();
+        Long goodsId = chatSessionDTO.getGoodsId();
         
-        // 生成会话ID
-        String sessionId = generateSessionId(currentUserId, receiverId);
+        // 生成会话ID（包含商品ID）
+        String sessionId = generateSessionId(currentUserId, receiverId, goodsId);
         
         // 查询会话是否存在
         ChatSession existSession = chatSessionMapper.getBySessionId(sessionId);
@@ -89,7 +96,7 @@ public class ChatServiceImpl implements ChatService {
                 .sessionId(sessionId)
                 .user1Id(Math.min(currentUserId, receiverId))
                 .user2Id(Math.max(currentUserId, receiverId))
-                .goodsId(chatSessionDTO.getGoodsId())
+                .goodsId(goodsId)
                 .lastMessage("")
                 .lastMessageTime(LocalDateTime.now())
                 .user1Unread(0)
@@ -228,6 +235,10 @@ public class ChatServiceImpl implements ChatService {
             throw new ChatPermissionException(MessageConstant.CHAT_NO_PERMISSION);
         }
         
+        // 获取对方用户ID（发送者）
+        Long otherUserId = session.getUser1Id().equals(currentUserId) ? 
+                session.getUser2Id() : session.getUser1Id();
+        
         // 标记消息为已读
         chatMessageMapper.markAsRead(sessionId, currentUserId);
         
@@ -240,6 +251,54 @@ public class ChatServiceImpl implements ChatService {
         log.debug("清除未读数缓存: userId={}", currentUserId);
         
         log.info("标记消息已读: sessionId={}, userId={}", sessionId, currentUserId);
+    }
+    
+    @Override
+    @Transactional
+    public List<ChatMessageVO> markAsReadAndGetMessages(String sessionId) {
+        Long currentUserId = BaseContext.getCurrentId();
+        
+        // 验证会话是否存在
+        ChatSession session = chatSessionMapper.getBySessionId(sessionId);
+        if (session == null) {
+            throw new ChatSessionNotFoundException(MessageConstant.CHAT_SESSION_NOT_FOUND);
+        }
+        
+        // 验证用户权限
+        if (!session.getUser1Id().equals(currentUserId) && !session.getUser2Id().equals(currentUserId)) {
+            throw new ChatPermissionException(MessageConstant.CHAT_NO_PERMISSION);
+        }
+        
+        // 获取对方用户ID（发送者）
+        Long otherUserId = session.getUser1Id().equals(currentUserId) ? 
+                session.getUser2Id() : session.getUser1Id();
+        
+        // 查询当前用户未读的消息（即对方发送给我的未读消息）
+        List<ChatMessage> unreadMessages = chatMessageMapper.getUnreadMessagesByReceiver(sessionId, currentUserId);
+        
+        // 标记消息为已读
+        chatMessageMapper.markAsRead(sessionId, currentUserId);
+        
+        // 清空未读数
+        chatSessionMapper.clearUnread(sessionId, currentUserId);
+        
+        // 清除未读数缓存
+        String key = UNREAD_TOTAL_CACHE_KEY + currentUserId;
+        redisTemplate.delete(key);
+        log.debug("清除未读数缓存: userId={}", currentUserId);
+        
+        // 构建已读消息的VO列表（用于推送给发送者）
+        List<ChatMessageVO> messageVOList = new ArrayList<>();
+        for (ChatMessage message : unreadMessages) {
+            // 更新消息的已读状态
+            message.setIsRead(1);
+            ChatMessageVO vo = buildChatMessageVO(message);
+            messageVOList.add(vo);
+        }
+        
+        log.info("标记消息已读: sessionId={}, userId={}, 已读消息数={}", sessionId, currentUserId, messageVOList.size());
+        
+        return messageVOList;
     }
     
     @Override
@@ -383,7 +442,7 @@ public class ChatServiceImpl implements ChatService {
             return null;
         }
         
-        String key = USER_INFO_CACHE_KEY + userId;
+        String key = RedisConstant.USER_INFO_KEY + userId;
         
         // 从 Redis 获取
         User user = (User) redisTemplate.opsForValue().get(key);
@@ -396,7 +455,7 @@ public class ChatServiceImpl implements ChatService {
         user = userMapper.findById(userId);
         if (user != null) {
             // 缓存30分钟（用户信息变化不频繁）
-            redisTemplate.opsForValue().set(key, user, 30, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set(key, user, RedisConstant.USER_INFO_TTL, TimeUnit.MINUTES);
             log.debug("缓存用户信息: userId={}", userId);
         }
         

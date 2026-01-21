@@ -17,7 +17,13 @@ public interface UserMapper {
      * 根据账号查询用户
      */
     @Select("SELECT * FROM user WHERE account_num = #{accountNum}")
-    User findByAcc( String accountNum);
+    User findByAcc(String accountNum);
+    
+    /**
+     * 根据昵称查询用户（用于检查昵称是否已存在）
+     */
+    @Select("SELECT * FROM user WHERE nickname = #{nickname}")
+    User findByNickname(String nickname);
 
     
     /**

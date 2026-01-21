@@ -5,7 +5,6 @@ import com.xyz.constant.RedisConstant;
 import com.xyz.dto.PasswordUpdateDTO;
 import com.xyz.dto.UserLoginDTO;
 import com.xyz.dto.UserRegisterDTO;
-import com.xyz.dto.UserUpdateDTO;
 import com.xyz.entity.User;
 import com.xyz.exception.AccountNotFoundException;
 import com.xyz.exception.AccountBannedException;
@@ -51,19 +50,19 @@ public class UserServiceImpl implements UserService {
         // 检查用户名是否已存在
         User userExist = userMapper.findByAcc(registerDTO.getAccountNum());
         if (userExist != null) {
-            throw new RuntimeException("用户已存在");
+            throw new RuntimeException(MessageConstant.ACCOUNT_ALREADY_EXISTS);
         }
 
         User user = new User();
         BeanUtils.copyProperties(registerDTO, user);
         
-        // 处理空字符串转 null（避免唯一约束冲突）
-        if (user.getEmail() != null && user.getEmail().trim().isEmpty()) {
-            user.setEmail(null);
-        }
-        if (user.getPhone() != null && user.getPhone().trim().isEmpty()) {
-            user.setPhone(null);
-        }
+        // 生成唯一的昵称：LL_ + 时间戳后8位 + 4位随机字符
+        String nickname = generateUniqueNickname();
+        user.setNickname(nickname);
+
+        user.setPhone(null);
+        user.setEmail(null);
+
         
         // 设置默认值
         user.setStatus(1); // 1-启用
@@ -80,8 +79,51 @@ public class UserServiceImpl implements UserService {
             redisTemplate.opsForZSet().add(zsetKey, user.getId(), timestamp);
         }
 
-        // 返回用户VO（不包含密码）
+        // 返回用户（不包含密码）
         return user;
+    }
+    
+    /**
+     * 生成唯一的昵称
+     * 格式：LL_ + 时间戳后8位 + 4位随机字符（数字+小写字母）
+     * 示例：LL_12345678abcd
+     */
+    private String generateUniqueNickname() {
+        String chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+        Random random = new Random();
+        int maxAttempts = 10; // 最多尝试10次
+        
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            // 获取当前时间戳的后8位
+            long timestamp = System.currentTimeMillis();
+            String timestampPart = String.valueOf(timestamp).substring(5); // 取后8位
+            
+            // 生成4位随机字符
+            StringBuilder randomPart = new StringBuilder();
+            for (int i = 0; i < 4; i++) {
+                randomPart.append(chars.charAt(random.nextInt(chars.length())));
+            }
+            
+            // 组合昵称
+            String nickname = "LL_" + timestampPart + randomPart.toString();
+            
+            // 检查昵称是否已存在
+            User existingUser = userMapper.findByNickname(nickname);
+            if (existingUser == null) {
+                return nickname;
+            }
+            
+            // 如果昵称已存在，等待1毫秒后重试
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        // 如果10次都失败，使用UUID作为后备方案
+        String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        return "LL_" + uuid;
     }
 
     
@@ -122,22 +164,35 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserInfoVO updateUserInfo(Long userId, UserUpdateDTO updateDTO) {
+    public UserInfoVO updateProfile(Long userId, String nickname, String phone, String email, String bio) {
         // 查询用户是否存在
         User user = userMapper.findById(userId);
         if (user == null) {
             throw new AccountNotFoundException("用户不存在");
         }
 
-        // 更新用户信息
-        BeanUtils.copyProperties(updateDTO, user);
+        // 更新昵称（必填，已在Controller验证）
+        user.setNickname(nickname.trim());
         
-        // 处理空字符串转 null（避免唯一约束冲突）
-        if (user.getEmail() != null && user.getEmail().trim().isEmpty()) {
+        // 更新手机号（可选，空字符串转null）
+        if (phone != null && !phone.trim().isEmpty()) {
+            user.setPhone(phone.trim());
+        } else {
+            user.setPhone(null);
+        }
+        
+        // 更新邮箱（可选，空字符串转null）
+        if (email != null && !email.trim().isEmpty()) {
+            user.setEmail(email.trim());
+        } else {
             user.setEmail(null);
         }
-        if (user.getPhone() != null && user.getPhone().trim().isEmpty()) {
-            user.setPhone(null);
+        
+        // 更新个人简介（可选，空字符串转null）
+        if (bio != null && !bio.trim().isEmpty()) {
+            user.setBio(bio.trim());
+        } else {
+            user.setBio(null);
         }
         
         user.setUpdateTime(LocalDateTime.now());
@@ -183,6 +238,29 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordUpdateDTO.getNewPassword());
         user.setUpdateTime(LocalDateTime.now());
         userMapper.updatePassword(user);
+    }
+
+    @Override
+    @Transactional
+    public UserInfoVO updateAvatar(Long userId, String avatar) {
+        // 查询用户是否存在
+        User user = userMapper.findById(userId);
+        if (user == null) {
+            throw new AccountNotFoundException("用户不存在");
+        }
+
+        // 更新头像
+        user.setImage(avatar);
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.update(user);
+        
+        // 清除用户卡片缓存
+        clearUserCardCache(userId);
+
+        // 返回更新后的用户信息
+        UserInfoVO userInfoVO = new UserInfoVO();
+        BeanUtils.copyProperties(user, userInfoVO);
+        return userInfoVO;
     }
 
     @Override
@@ -384,10 +462,13 @@ public class UserServiceImpl implements UserService {
     }
     
     /**
-     * 清除用户卡片缓存
+     * 清除用户卡片缓存和用户信息缓存
      */
     private void clearUserCardCache(Long userId) {
+        // 清除用户卡片缓存
         redisTemplate.delete(RedisConstant.USER_CARD_KEY + userId);
+        // 清除用户信息缓存（聊天服务使用）
+        redisTemplate.delete(RedisConstant.USER_INFO_KEY + userId);
     }
     
     /**

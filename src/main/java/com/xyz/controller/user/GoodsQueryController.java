@@ -38,6 +38,18 @@ public class GoodsQueryController {
     }
 
     /**
+     * 分页获取所有上架商品列表（按更新时间倒序）
+     */
+    @GetMapping("/all/page")
+    @Operation(summary = "分页获取所有上架商品列表")
+    public Result<PageResult<GoodsCardVO>> getAllGoodsPage(
+            @Parameter(description = "游标（时间戳）") @RequestParam(required = false) Long cursor,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
+        PageResult<GoodsCardVO> page = goodsQueryService.getAllGoodsPage(cursor, size);
+        return Result.success(page);
+    }
+
+    /**
      * 获取我的收藏列表（游标分页）
      */
     @GetMapping("/my/favorite")
@@ -87,6 +99,24 @@ public class GoodsQueryController {
             return Result.success(pageResult);
         } catch (Exception e) {
             log.error("查询我发布的商品失败: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 查询我下架的商品
+     */
+    @GetMapping("/offline/my")
+    @Operation(summary = "我下架的商品")
+    public Result<PageResult<GoodsCardVO>> getMyOfflineGoods(
+            @Parameter(description = "游标（首次请求不传或传null）") @RequestParam(required = false) Long cursor,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
+        try {
+            Long userId = BaseContext.getCurrentId();
+            PageResult<GoodsCardVO> pageResult = goodsQueryService.getMyOfflineGoods(userId, cursor, size);
+            return Result.success(pageResult);
+        } catch (Exception e) {
+            log.error("查询我下架的商品失败: {}", e.getMessage());
             return Result.error(e.getMessage());
         }
     }

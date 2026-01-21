@@ -4,7 +4,6 @@ import com.xyz.constant.MessageConstant;
 import com.xyz.dto.PasswordUpdateDTO;
 import com.xyz.dto.UserLoginDTO;
 import com.xyz.dto.UserRegisterDTO;
-import com.xyz.dto.UserUpdateDTO;
 import com.xyz.entity.User;
 import com.xyz.properties.JwtProperties;
 import com.xyz.service.UserService;
@@ -102,15 +101,42 @@ public class UserController {
     }
 
     /**
-     * 修改个人信息
+     * 修改基础资料（昵称、手机号）
      */
-    @PutMapping("/info")
-    @Operation(summary = "修改个人信息")
-    public Result<UserInfoVO> updateUserInfo(@RequestBody UserUpdateDTO updateDTO) {
+    @PutMapping("/profile")
+    @Operation(summary = "修改基础资料")
+    public Result<UserInfoVO> updateProfile(@RequestBody Map<String, String> request) {
         try {
             Long userId = BaseContext.getCurrentId();
-            UserInfoVO userInfoVO = userService.updateUserInfo(userId, updateDTO);
-            return Result.success("更新成功", userInfoVO);
+            String nickname = request.get("nickname");
+            String phone = request.get("phone");
+            String email = request.get("email");
+            String bio = request.get("bio");
+            
+            // 昵称必填验证
+            if (nickname == null || nickname.trim().isEmpty()) {
+                return Result.error("昵称不能为空");
+            }
+            
+            nickname = nickname.trim();
+            
+            // 昵称长度验证（2-15个字符）
+            if (nickname.length() < 2 || nickname.length() > 15) {
+                return Result.error("昵称长度必须在2-15个字符之间");
+            }
+            
+            // 昵称格式验证：只能包含中英文、数字、"_"、"-"
+            if (!nickname.matches("^[\\u4e00-\\u9fa5a-zA-Z0-9_-]+$")) {
+                return Result.error("昵称只能包含中英文、数字、下划线和横线");
+            }
+            
+            // 昵称不能是纯数字
+            if (nickname.matches("^\\d+$")) {
+                return Result.error("昵称不能是纯数字");
+            }
+            
+            UserInfoVO userInfoVO = userService.updateProfile(userId, nickname, phone, email, bio);
+            return Result.success("修改成功", userInfoVO);
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }
@@ -141,6 +167,25 @@ public class UserController {
             Long userId = BaseContext.getCurrentId();
             userService.updatePassword(userId, passwordUpdateDTO);
             return Result.success(MessageConstant.PASSWORD_UPDATE_SUCCESS);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 修改头像
+     */
+    @PutMapping("/avatar")
+    @Operation(summary = "修改头像")
+    public Result<UserInfoVO> updateAvatar(@RequestBody Map<String, String> request) {
+        try {
+            Long userId = BaseContext.getCurrentId();
+            String avatar = request.get("avatar");
+            if (avatar == null || avatar.trim().isEmpty()) {
+                return Result.error("头像URL不能为空");
+            }
+            UserInfoVO userInfoVO = userService.updateAvatar(userId, avatar);
+            return Result.success("头像更新成功", userInfoVO);
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }

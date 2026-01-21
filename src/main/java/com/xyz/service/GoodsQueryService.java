@@ -43,4 +43,21 @@ public interface GoodsQueryService {
      * @return 分页结果
      */
     PageResult<GoodsCardVO> getMyPublishedGoods(Long userId, Long cursor, Integer size);
+
+    /**
+     * 游标分页查询所有上架商品列表（按更新时间倒序）
+     * @param cursor 游标（时间戳毫秒）
+     * @param size 每页数量
+     * @return 分页结果
+     */
+    PageResult<GoodsCardVO> getAllGoodsPage(Long cursor, Integer size);
+
+    /**
+     * 查询我下架的商品（游标分页）
+     * @param userId 当前用户ID
+     * @param cursor 游标（时间戳毫秒）
+     * @param size 每页数量
+     * @return 分页结果
+     */
+    PageResult<GoodsCardVO> getMyOfflineGoods(Long userId, Long cursor, Integer size);
 }

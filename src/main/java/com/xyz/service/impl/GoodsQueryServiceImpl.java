@@ -128,6 +128,65 @@ public class GoodsQueryServiceImpl implements GoodsQueryService {
         return getUserPublishedGoods(userId, cursor, size);
     }
 
+    @Override
+    public PageResult<GoodsCardVO> getAllGoodsPage(Long cursor, Integer size) {
+        log.info("查询所有商品列表: cursor={}, size={}", cursor, size);
+        
+        // 设置默认值
+        long cursorTime = (cursor == null || cursor <= 0) ? System.currentTimeMillis() : cursor;
+        if (size == null || size <= 0) {
+            size = 10;
+        }
+        
+        String zsetKey = RedisConstant.GOODS_ALL_IDS_KEY + RedisConstant.GOODS_ALL_IDS_SUFFIX;
+        
+        // 尝试从 Redis ZSet 获取ID列表
+        List<Long> ids = getIdsFromZSet(zsetKey, cursorTime, size + 1);
+        
+        List<GoodsCardVO> list;
+        if (ids != null && !ids.isEmpty()) {
+            // ZSet命中，先从缓存批量获取，未命中的再查MySQL
+            list = getGoodsCardsFromCacheOrDB(ids);
+        } else {
+            // ZSet未命中，直接查MySQL并重建缓存
+            list = goodsQueryMapper.getAllGoodsPage(cursorTime, size + 1);
+            rebuildAllGoodsZSet();
+            // 将查询结果存入卡片缓存
+            cacheGoodsCards(list);
+        }
+        
+        return buildPageResult(list, size);
+    }
+
+    @Override
+    public PageResult<GoodsCardVO> getMyOfflineGoods(Long userId, Long cursor, Integer size) {
+        log.info("查询我下架的商品: userId={}, cursor={}, size={}", userId, cursor, size);
+
+        // 设置默认值
+        long cursorTime = (cursor == null || cursor <= 0) ? System.currentTimeMillis() : cursor;
+        if (size == null || size <= 0) {
+            size = 10;
+        }
+
+        String zsetKey = buildZSetKey(RedisConstant.GOODS_OFFLINE_IDS_KEY, userId, RedisConstant.GOODS_OFFLINE_IDS_SUFFIX);
+
+        // 尝试从 Redis ZSet 获取ID列表
+        List<Long> ids = getIdsFromZSet(zsetKey, cursorTime, size + 1);
+
+        List<GoodsCardVO> list;
+        if (ids != null && !ids.isEmpty()) {
+            // ZSet命中，先从缓存批量获取
+            list = getGoodsCardsFromCacheOrDB(ids);
+        } else {
+            // ZSet未命中，直接查MySQL并重建缓存
+            list = goodsQueryMapper.getOfflineGoodsByOwnerId(userId, cursorTime, size + 1);
+            rebuildOfflineZSet(userId);
+            cacheGoodsCards(list);
+        }
+
+        return buildPageResult(list, size);
+    }
+
     
     // ==================== Redis缓存辅助方法 ====================
     
@@ -222,6 +281,24 @@ public class GoodsQueryServiceImpl implements GoodsQueryService {
     private void rebuildOwnerZSet(Long ownerId) {
         String key = buildZSetKey(RedisConstant.GOODS_OWNER_IDS_KEY, ownerId, RedisConstant.GOODS_OWNER_IDS_SUFFIX);
         rebuildZSet(key, () -> goodsQueryMapper.getGoodsIdsWithTimeByOwnerId(ownerId), 
+                    "id", "updateTime", RedisConstant.GOODS_IDS_TTL);
+    }
+
+    /**
+     * 重建所有商品ZSet缓存
+     */
+    private void rebuildAllGoodsZSet() {
+        String key = RedisConstant.GOODS_ALL_IDS_KEY + RedisConstant.GOODS_ALL_IDS_SUFFIX;
+        rebuildZSet(key, () -> goodsQueryMapper.getAllGoodsIdsWithTime(),
+                    "id", "updateTime", RedisConstant.GOODS_IDS_TTL);
+    }
+
+    /**
+     * 重建用户下架商品ZSet缓存
+     */
+    private void rebuildOfflineZSet(Long ownerId) {
+        String key = buildZSetKey(RedisConstant.GOODS_OFFLINE_IDS_KEY, ownerId, RedisConstant.GOODS_OFFLINE_IDS_SUFFIX);
+        rebuildZSet(key, () -> goodsQueryMapper.getOfflineGoodsIdsWithTimeByOwnerId(ownerId), 
                     "id", "updateTime", RedisConstant.GOODS_IDS_TTL);
     }
     

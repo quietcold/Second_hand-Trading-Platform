@@ -66,7 +66,23 @@ public class ChatController {
     @Operation(summary = "标记消息已读")
     public Result<Void> markAsRead(@Parameter(description = "会话ID") @PathVariable String sessionId) {
         log.info("标记消息已读: sessionId={}", sessionId);
-        chatService.markAsRead(sessionId);
+        
+        // 标记已读并获取已读的消息列表（用于推送给发送者）
+        List<ChatMessageVO> readMessages = chatService.markAsReadAndGetMessages(sessionId);
+        
+        // 实时推送已读状态给发送者
+        for (ChatMessageVO message : readMessages) {
+            if (chatService.isUserOnline(message.getSenderId())) {
+                chatWebSocketHandler.sendMessageToUser(
+                        message.getSenderId(),
+                        message
+                );
+                log.info("已读通知已推送给发送者: userId={}, messageId={}", message.getSenderId(), message.getId());
+            }
+        }
+        
+        log.info("标记已读完成: sessionId={}, 推送消息数={}", sessionId, readMessages.size());
+        
         return Result.success();
     }
     

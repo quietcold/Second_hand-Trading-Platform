@@ -29,6 +29,7 @@
         INNER JOIN goods g ON gf.goods_id = g.id
         LEFT JOIN user u ON g.owner_id = u.id
         WHERE gf.user_id = #{userId}
+        AND g.status = 1
         AND UNIX_TIMESTAMP(gf.create_time) * 1000 &lt; #{cursor}
         ORDER BY gf.create_time DESC
         LIMIT #{size}
@@ -73,6 +74,29 @@
             #{id}
         </foreach>
         )
+    </select>
+
+    <!-- 游标分页查询所有上架商品列表（按更新时间倒序）-->
+    <select id="getAllGoodsPage" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.status = 1
+          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
+        ORDER BY g.update_time DESC
+        LIMIT #{size}
+    </select>
+
+    <!-- 游标分页查询用户下架的商品列表（按更新时间倒序）-->
+    <select id="getOfflineGoodsByOwnerId" resultType="com.xyz.vo.GoodsCardVO">
+        SELECT <include refid="goodsCardColumns"/>
+        FROM goods g
+        LEFT JOIN user u ON g.owner_id = u.id
+        WHERE g.owner_id = #{ownerId}
+          AND g.status = 4
+          AND UNIX_TIMESTAMP(g.update_time) * 1000 &lt; #{cursor}
+        ORDER BY g.update_time DESC
+        LIMIT #{size}
     </select>
 
 </mapper>

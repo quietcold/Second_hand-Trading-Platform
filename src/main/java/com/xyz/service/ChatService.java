@@ -54,6 +54,11 @@ public interface ChatService {
     ChatMessageVO recallMessage(Long messageId);
     
     /**
+     * 标记消息已读并返回已读的消息列表（用于实时通知）
+     */
+    List<ChatMessageVO> markAsReadAndGetMessages(String sessionId);
+    
+    /**
      * 检查用户是否在线
      */
     boolean isUserOnline(Long userId);

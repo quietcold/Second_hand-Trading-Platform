@@ -21,9 +21,12 @@ public interface GoodsQueryMapper {
 
     /**
      * 根据用户ID查询所有收藏的商品ID和收藏时间戳（用于初始化ZSet缓存）
+     * 只返回上架状态的商品
      */
-    @Select("SELECT goods_id AS goodsId, UNIX_TIMESTAMP(create_time) * 1000 AS createTime " +
-            "FROM goods_favorite WHERE user_id = #{userId}")
+    @Select("SELECT gf.goods_id AS goodsId, UNIX_TIMESTAMP(gf.create_time) * 1000 AS createTime " +
+            "FROM goods_favorite gf " +
+            "INNER JOIN goods g ON gf.goods_id = g.id " +
+            "WHERE gf.user_id = #{userId} AND g.status = 1")
     List<Map<String, Object>> getFavoriteIdsWithTimeByUserId(Long userId);
 
     /**
@@ -69,4 +72,27 @@ public interface GoodsQueryMapper {
 
     /** 根据ID列表批量查询商品卡片信息 */
     List<GoodsCardVO> getGoodsCardsByIds(@Param("ids") List<Long> ids);
+
+    /** 游标分页查询所有上架商品列表（按更新时间倒序） */
+    List<GoodsCardVO> getAllGoodsPage(@Param("cursor") long cursor,
+                                      @Param("size") int size);
+
+    /**
+     * 查询所有上架商品的ID和更新时间戳（用于初始化ZSet缓存）
+     */
+    @Select("SELECT id, UNIX_TIMESTAMP(update_time) * 1000 AS updateTime FROM goods " +
+            "WHERE status = 1")
+    List<Map<String, Object>> getAllGoodsIdsWithTime();
+
+    /**
+     * 根据用户ID查询所有下架商品的ID和更新时间戳（用于初始化ZSet缓存）
+     */
+    @Select("SELECT id, UNIX_TIMESTAMP(update_time) * 1000 AS updateTime FROM goods " +
+            "WHERE owner_id = #{ownerId} AND status = 4")
+    List<Map<String, Object>> getOfflineGoodsIdsWithTimeByOwnerId(long ownerId);
+
+    /** 游标分页查询用户下架的商品列表 */
+    List<GoodsCardVO> getOfflineGoodsByOwnerId(@Param("ownerId") long ownerId,
+                                               @Param("cursor") long cursor,
+                                               @Param("size") int size);
 }
