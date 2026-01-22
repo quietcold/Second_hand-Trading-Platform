@@ -12,9 +12,7 @@
              ELSE g.description 
         END AS briefDescription,
         g.cover_url AS coverUrl,
-        g.condition_level AS conditionLevel,
         g.collect_num AS collectNum,
-        g.category_id AS categoryId,
         g.sell_price AS sellPrice,
         g.rent_price AS rentPrice,
         UNIX_TIMESTAMP(g.update_time) * 1000 AS updateTimestamp,

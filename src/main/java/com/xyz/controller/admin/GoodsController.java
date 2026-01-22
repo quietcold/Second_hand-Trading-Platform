@@ -2,6 +2,7 @@ package com.xyz.controller.admin;
 
 import com.xyz.constant.MessageConstant;
 import com.xyz.dto.GoodsQueryDTO;
+import com.xyz.service.CollectNumSyncService;
 import com.xyz.service.GoodsService;
 import com.xyz.service.GoodsQueryService;
 import com.xyz.vo.GoodsCardVO;
@@ -27,6 +28,9 @@ public class GoodsController {
     
     @Autowired
     private GoodsQueryService goodsQueryService;
+    
+    @Autowired
+    private CollectNumSyncService collectNumSyncService;
 
     /**
      * 分页获取商品列表（按分类）- 复用用户端接口
@@ -120,6 +124,35 @@ public class GoodsController {
             return Result.success(result);
         } catch (Exception e) {
             return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 手动触发收藏数同步
+     */
+    @PostMapping("/sync-collect-num")
+    @Operation(summary = "手动触发收藏数同步")
+    public Result syncCollectNum() {
+        try {
+            collectNumSyncService.batchSyncCollectNum();
+            return Result.success("收藏数同步任务已触发");
+        } catch (Exception e) {
+            return Result.error("同步失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 强制同步指定商品的收藏数
+     */
+    @PostMapping("/{id}/force-sync-collect")
+    @Operation(summary = "强制同步指定商品的收藏数")
+    public Result forceSyncCollectNum(
+            @Parameter(description = "商品ID") @PathVariable Long id) {
+        try {
+            collectNumSyncService.forceSyncCollectNum(id);
+            return Result.success("商品收藏数强制同步已触发");
+        } catch (Exception e) {
+            return Result.error("同步失败: " + e.getMessage());
         }
     }
 }

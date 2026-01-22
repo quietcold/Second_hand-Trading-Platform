@@ -3,6 +3,7 @@ package com.xyz.service.impl;
 import com.xyz.constant.GoodsStatusConstant;
 import com.xyz.constant.MessageConstant;
 import com.xyz.constant.RedisConstant;
+import com.xyz.constant.GoodsConditionConstant;
 import com.xyz.dto.GoodsDTO;
 import com.xyz.dto.GoodsQueryDTO;
 import com.xyz.entity.Goods;
@@ -11,8 +12,10 @@ import com.xyz.exception.GoodsInRentException;
 import com.xyz.exception.GoodsNotFoundException;
 import com.xyz.mapper.GoodsMapper;
 import com.xyz.mapper.GoodsQueryMapper;
+import com.xyz.service.CollectNumSyncService;
 import com.xyz.service.GoodsService;
 import com.xyz.util.BaseContext;
+import com.xyz.util.CollectNumCacheUtil;
 import com.xyz.vo.GoodsCardVO;
 import com.xyz.vo.GoodsDetailVO;
 import com.xyz.vo.PageResult;
@@ -47,6 +50,12 @@ public class GoodsServiceImpl implements GoodsService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private CollectNumSyncService collectNumSyncService;
+    
+    @Autowired
+    private CollectNumCacheUtil collectNumCacheUtil;
 
     @Override
     @Transactional
@@ -148,18 +157,81 @@ public class GoodsServiceImpl implements GoodsService {
             List<GoodsCardVO> fromDB = goodsQueryMapper.getGoodsCardsByIds(missIds);
             for (GoodsCardVO vo : fromDB) {
                 resultMap.put(vo.getId(), vo);
-                // 存入缓存
+                // 存入缓存（点赞数可能过时，后续会从点赞数缓存重新获取最新值）
                 String key = RedisConstant.GOODS_CARD_KEY + vo.getId();
                 long ttl = RedisConstant.GOODS_CARD_TTL + new Random().nextInt(5);
                 redisTemplate.opsForValue().set(key, vo, ttl, TimeUnit.MINUTES);
             }
         }
         
-        // 5. 按原始ids顺序返回
-        return ids.stream()
+        // 5. 批量获取点赞数并赋值给商品卡片
+        List<GoodsCardVO> result = ids.stream()
                 .map(resultMap::get)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+        
+        // 批量设置点赞数
+        batchSetCollectNum(result);
+        
+        return result;
+    }
+    
+    /**
+     * 为商品详情设置最新的收藏数
+     * @param detail 商品详情对象
+     */
+    private void setLatestCollectNum(GoodsDetailVO detail) {
+        if (detail == null) {
+            return;
+        }
+        
+        Integer collectNum = collectNumCacheUtil.getCollectNum(detail.getId());
+        if (collectNum != null) {
+            detail.setCollectNum(collectNum);
+        }
+        // 如果获取失败，保持原有值
+    }
+    
+    /**
+     * 处理商品成色显示逻辑
+     * 如果成色是明显使用痕迹，则不显示成色信息
+     * @param detail 商品详情对象
+     */
+    private void processConditionLevel(GoodsDetailVO detail) {
+        if (detail == null) {
+            return;
+        }
+        
+        // 如果成色是明显使用痕迹，则设置为null，前端不显示
+        if (detail.getConditionLevel() != null && 
+            detail.getConditionLevel().equals(GoodsConditionConstant.OBVIOUS_WEAR)) {
+            detail.setConditionLevel(null);
+            log.debug("商品成色为明显使用痕迹，已隐藏成色信息: goodsId={}", detail.getId());
+        }
+    }
+    
+    /**
+     * 批量设置商品卡片的点赞数（复用GoodsQueryServiceImpl的逻辑）
+     * @param cards 商品卡片列表
+     */
+    private void batchSetCollectNum(List<GoodsCardVO> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return;
+        }
+        
+        // 提取商品ID列表
+        List<Long> goodsIds = cards.stream()
+                .map(GoodsCardVO::getId)
+                .collect(Collectors.toList());
+        
+        // 批量获取收藏数
+        Map<Long, Integer> collectNumMap = collectNumCacheUtil.batchGetCollectNum(goodsIds);
+        
+        // 将收藏数赋值给商品卡片
+        for (GoodsCardVO card : cards) {
+            Integer collectNum = collectNumMap.get(card.getId());
+            card.setCollectNum(collectNum != null ? collectNum : 0);
+        }
     }
     
 
@@ -238,19 +310,27 @@ public class GoodsServiceImpl implements GoodsService {
         
         // 1. 先查缓存
         Object cached = redisTemplate.opsForValue().get(cacheKey);
+        GoodsDetailVO detail;
+        
         if (cached != null) {
-            return (GoodsDetailVO) cached;
+            detail = (GoodsDetailVO) cached;
+        } else {
+            // 2. 缓存未命中，查数据库
+            detail = goodsMapper.getGoodsDetailById(id);
+            if (detail == null) {
+                return null;
+            }
+            
+            // 3. 存入缓存，设置过期时间（基础TTL + 随机浮动，防止缓存雪崩）
+            long ttl = RedisConstant.GOODS_DETAIL_TTL + new Random().nextInt((int) RedisConstant.GOODS_DETAIL_TTL_RANDOM);
+            redisTemplate.opsForValue().set(cacheKey, detail, ttl, TimeUnit.MINUTES);
         }
         
-        // 2. 缓存未命中，查数据库
-        GoodsDetailVO detail = goodsMapper.getGoodsDetailById(id);
-        if (detail == null) {
-            return null;
-        }
+        // 4. 从收藏数缓存中获取最新的收藏数
+        setLatestCollectNum(detail);
         
-        // 3. 存入缓存，设置过期时间（基础TTL + 随机浮动，防止缓存雪崩）
-        long ttl = RedisConstant.GOODS_DETAIL_TTL + new Random().nextInt((int) RedisConstant.GOODS_DETAIL_TTL_RANDOM);
-        redisTemplate.opsForValue().set(cacheKey, detail, ttl, TimeUnit.MINUTES);
+        // 5. 处理成色显示逻辑：如果是明显使用痕迹，则不显示成色
+        processConditionLevel(detail);
         
         return detail;
     }
@@ -351,11 +431,12 @@ public class GoodsServiceImpl implements GoodsService {
     }
     
     /**
-     * 清除商品缓存（详情缓存 + 卡片缓存）
+     * 清除商品缓存（只清除详情缓存，卡片缓存保留）
      */
     private void clearGoodsCache(Long goodsId) {
         redisTemplate.delete(RedisConstant.GOODS_DETAIL_KEY + goodsId);
-        redisTemplate.delete(RedisConstant.GOODS_CARD_KEY + goodsId);
+        // 不再清除商品卡片缓存，因为点赞数已经单独缓存
+        // redisTemplate.delete(RedisConstant.GOODS_CARD_KEY + goodsId);
     }
     
     /**
@@ -433,8 +514,8 @@ public class GoodsServiceImpl implements GoodsService {
         if (count > 0) {
             // 已收藏，取消收藏
             goodsMapper.deleteFavorite(userId, goodsId);
-            // 更新商品收藏数
-            updateGoodsCollectNum(goodsId, -1);
+            // 异步更新商品收藏数（-1）
+            updateGoodsCollectNumAsync(goodsId, -1);
             // 从 Redis ZSet 中移除
             removeFromFavoriteZSet(userId, goodsId);
             log.info("取消收藏成功: userId={}, goodsId={}", userId, goodsId);
@@ -447,8 +528,8 @@ public class GoodsServiceImpl implements GoodsService {
                     .createTime(LocalDateTime.now())
                     .build();
             goodsMapper.insertFavorite(favorite);
-            // 更新商品收藏数
-            updateGoodsCollectNum(goodsId, 1);
+            // 异步更新商品收藏数（+1）
+            updateGoodsCollectNumAsync(goodsId, 1);
             // 添加到 Redis ZSet
             addToFavoriteZSet(userId, goodsId);
             log.info("收藏成功: userId={}, goodsId={}", userId, goodsId);
@@ -463,21 +544,51 @@ public class GoodsServiceImpl implements GoodsService {
     }
     
     /**
-     * 更新商品收藏数
+     * 异步更新商品收藏数（只更新缓存，数据库异步同步）
      * @param goodsId 商品ID
-     * @param flag 变化量（+1表示添加收藏，-1表示取消收藏）
+     * @param delta 变化量（+1表示添加收藏，-1表示取消收藏）
      */
-    private void updateGoodsCollectNum(Long goodsId, Integer flag) {
+    private void updateGoodsCollectNumAsync(Long goodsId, Integer delta) {
+        try {
+            // 只更新缓存中的点赞数
+            updateCollectNumCache(goodsId, delta);
+            
+            // 标记需要异步同步到数据库
+            collectNumSyncService.markForSync(goodsId);
+            
+            log.info("异步更新商品收藏数缓存: goodsId={}, delta={}", goodsId, delta);
+        } catch (Exception e) {
+            log.error("异步更新商品收藏数失败: goodsId={}, error={}", goodsId, e.getMessage());
+            // 异步更新失败时，降级为同步更新
+            updateGoodsCollectNumSync(goodsId, delta);
+        }
+    }
+    
+    /**
+     * 同步更新商品收藏数（兼容旧逻辑，用于降级）
+     * @param goodsId 商品ID
+     * @param delta 变化量
+     */
+    private void updateGoodsCollectNumSync(Long goodsId, Integer delta) {
         try {
             // 更新商品表的收藏数字段（增量更新）
-            goodsMapper.updateCollectNum(goodsId, flag);
-            log.info("更新商品收藏数: goodsId={}, delta={}", goodsId, flag);
-            // 清除商品卡片缓存，保证数据一致性
-            redisTemplate.delete(RedisConstant.GOODS_CARD_KEY + goodsId);
+            goodsMapper.updateCollectNum(goodsId, delta);
+            log.info("同步更新商品收藏数: goodsId={}, delta={}", goodsId, delta);
+            
+            // 更新点赞数缓存
+            updateCollectNumCache(goodsId, delta);
         } catch (Exception e) {
-            log.error("更新商品收藏数失败: goodsId={}, error={}", goodsId, e.getMessage());
-            // 不抛出异常，避免影响主流程
+            log.error("同步更新商品收藏数失败: goodsId={}, error={}", goodsId, e.getMessage());
         }
+    }
+    
+    /**
+     * 更新点赞数缓存
+     * @param goodsId 商品ID
+     * @param delta 变化量
+     */
+    private void updateCollectNumCache(Long goodsId, Integer delta) {
+        collectNumCacheUtil.updateCollectNumCache(goodsId, delta);
     }
     
     /**

@@ -3,6 +3,7 @@ package com.xyz.service.impl;
 import com.xyz.constant.RedisConstant;
 import com.xyz.mapper.GoodsQueryMapper;
 import com.xyz.service.GoodsQueryService;
+import com.xyz.util.CollectNumCacheUtil;
 import com.xyz.vo.GoodsCardVO;
 import com.xyz.vo.PageResult;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,9 @@ public class GoodsQueryServiceImpl implements GoodsQueryService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+    
+    @Autowired
+    private CollectNumCacheUtil collectNumCacheUtil;
 
     @Override
     public PageResult<GoodsCardVO> getFavoriteGoods(Long userId, Long cursor, Integer size) {
@@ -337,18 +341,23 @@ public class GoodsQueryServiceImpl implements GoodsQueryService {
             List<GoodsCardVO> fromDB = goodsQueryMapper.getGoodsCardsByIds(missIds);
             for (GoodsCardVO vo : fromDB) {
                 resultMap.put(vo.getId(), vo);
-                // 存入缓存
+                // 存入缓存（点赞数可能过时，后续会从点赞数缓存重新获取最新值）
                 String key = RedisConstant.GOODS_CARD_KEY + vo.getId();
                 long ttl = RedisConstant.GOODS_CARD_TTL + new Random().nextInt(5);
                 redisTemplate.opsForValue().set(key, vo, ttl, TimeUnit.MINUTES);
             }
         }
         
-        // 5. 按原始ids顺序返回,这个传进来的ids是有序的，之前已经按照商品updateTime顺序进行倒序排序
-        return ids.stream()
+        // 5. 批量获取点赞数并赋值给商品卡片
+        List<GoodsCardVO> result = ids.stream()
                 .map(resultMap::get)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+        
+        // 批量设置点赞数
+        batchSetCollectNum(result);
+        
+        return result;
     }
     
     /**
@@ -358,10 +367,39 @@ public class GoodsQueryServiceImpl implements GoodsQueryService {
         if (cards == null || cards.isEmpty()) {
             return;
         }
+        
+        // 批量设置点赞数
+        batchSetCollectNum(cards);
+        
+        // 存入商品卡片缓存（点赞数可能过时，后续会从点赞数缓存重新获取最新值）
         for (GoodsCardVO vo : cards) {
             String key = RedisConstant.GOODS_CARD_KEY + vo.getId();
             long ttl = RedisConstant.GOODS_CARD_TTL + new Random().nextInt(5);
             redisTemplate.opsForValue().set(key, vo, ttl, TimeUnit.MINUTES);
+        }
+    }
+    
+    /**
+     * 批量设置商品卡片的点赞数
+     * @param cards 商品卡片列表
+     */
+    private void batchSetCollectNum(List<GoodsCardVO> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return;
+        }
+        
+        // 提取商品ID列表
+        List<Long> goodsIds = cards.stream()
+                .map(GoodsCardVO::getId)
+                .collect(Collectors.toList());
+        
+        // 批量获取收藏数
+        Map<Long, Integer> collectNumMap = collectNumCacheUtil.batchGetCollectNum(goodsIds);
+        
+        // 将收藏数赋值给商品卡片
+        for (GoodsCardVO card : cards) {
+            Integer collectNum = collectNumMap.get(card.getId());
+            card.setCollectNum(collectNum != null ? collectNum : 0);
         }
     }
     

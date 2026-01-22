@@ -1,5 +1,6 @@
 package com.xyz.service.impl;
 
+import com.xyz.constant.DefaultConstant;
 import com.xyz.constant.MessageConstant;
 import com.xyz.constant.RedisConstant;
 import com.xyz.dto.PasswordUpdateDTO;
@@ -62,6 +63,9 @@ public class UserServiceImpl implements UserService {
 
         user.setPhone(null);
         user.setEmail(null);
+        
+        // 设置默认头像
+        user.setImage(DefaultConstant.DEFAULT_AVATAR_URL);
 
         
         // 设置默认值

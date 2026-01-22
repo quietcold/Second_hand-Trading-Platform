@@ -92,6 +92,15 @@ public class RedisConstant {
     /** 商品卡片缓存过期时间（分钟） */
     public static final long GOODS_CARD_TTL = 30;
 
+    /** 商品点赞数缓存前缀 - goods:collect:{goodsId} */
+    public static final String GOODS_COLLECT_KEY = "goods:collect:";
+
+    /** 商品点赞数缓存过期时间（分钟） */
+    public static final long GOODS_COLLECT_TTL = 60;
+
+    /** 商品收藏数同步标记集合 - goods:collect:sync:pending */
+    public static final String GOODS_COLLECT_SYNC_PENDING_KEY = "goods:collect:sync:pending";
+
     /** ZSet缓存过期时间（分钟） */
     public static final long GOODS_IDS_TTL = 60;
 }

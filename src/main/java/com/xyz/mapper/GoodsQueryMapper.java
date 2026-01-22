@@ -95,4 +95,31 @@ public interface GoodsQueryMapper {
     List<GoodsCardVO> getOfflineGoodsByOwnerId(@Param("ownerId") long ownerId,
                                                @Param("cursor") long cursor,
                                                @Param("size") int size);
+
+    /**
+     * 根据商品ID列表批量查询点赞数
+     * @param ids 商品ID列表
+     * @return Map<商品ID, 点赞数>
+     */
+    @Select("<script>" +
+            "SELECT id, collect_num FROM goods WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            "</script>")
+    List<Map<String, Object>> getCollectNumsByIdsRaw(@Param("ids") List<Long> ids);
+
+    /**
+     * 根据商品ID列表批量查询点赞数的默认方法
+     */
+    default Map<Long, Integer> getCollectNumsByIds(List<Long> ids) {
+        List<Map<String, Object>> rawResults = getCollectNumsByIdsRaw(ids);
+        Map<Long, Integer> result = new java.util.HashMap<>();
+        for (Map<String, Object> row : rawResults) {
+            Long id = ((Number) row.get("id")).longValue();
+            Integer collectNum = ((Number) row.get("collect_num")).intValue();
+            result.put(id, collectNum);
+        }
+        return result;
+    }
 }

@@ -41,6 +41,12 @@ public interface GoodsMapper {
     @Update("UPDATE goods SET collect_num = collect_num + #{delta} WHERE id = #{id}")
     int updateCollectNum(@Param("id") Long id, @Param("delta") Integer delta);
 
+    /**
+     * 根据商品ID查询点赞数
+     */
+    @Select("SELECT collect_num FROM goods WHERE id = #{id}")
+    Integer getCollectNumById(@Param("id") Long id);
+
     // ==================== 收藏相关 ====================
 
     /**

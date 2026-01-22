@@ -32,8 +32,8 @@ public interface UserMapper {
      * @return
      */
     @Options(useGeneratedKeys = true, keyProperty = "id")
-    @Insert("INSERT INTO user(account_num, password, email, phone, nickname, bio, status, create_time, update_time) " +
-            "VALUES(#{accountNum}, #{password}, #{email}, #{phone}, #{nickname}, #{bio}, #{status}, #{createTime}, #{updateTime})")
+    @Insert("INSERT INTO user(account_num, password, email, phone, nickname, image, bio, status, create_time, update_time) " +
+            "VALUES(#{accountNum}, #{password}, #{email}, #{phone}, #{nickname}, #{image}, #{bio}, #{status}, #{createTime}, #{updateTime})")
     int insert(User user);
 
 
